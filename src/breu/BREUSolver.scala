@@ -9,10 +9,6 @@ import java.io.FileInputStream
 import java.io.ObjectInputStream
 import java.io.File
 
-// import argonaut._, Argonaut._
-// import scalaz._, Scalaz._
-
-
 import Timer._
 
 import scala.collection.mutable.{Map => MMap}
@@ -64,10 +60,16 @@ class Stats {
 }
 
 
-// A superclass for every BREU-solver
+/*
+ * An abstract BREUSolver
+ * 
+ * Requires solveaux and unsatCore to be defined
+ * 
+ */
 abstract class BREUSolver[Term, Fun](
   val timeoutChecker : () => Unit,
   val maxSolverRuntime : Long) {
+
   var debug = false
   type FunApp = (Fun, Seq[Term], Term)
   type Goal = (Term, Term)
@@ -75,14 +77,14 @@ abstract class BREUSolver[Term, Fun](
   type IntFunApp = (Int, Seq[Int], Int)
   type IntGoal = (Int, Int)
 
+  // Bit manipulation
+  val alloc = new Allocator
+  val ZEROBIT = 1
+  val ONEBIT = 2    
   
   //
   //   CONSTRUCTOR METHOD BEGIN
   //
-
-  val alloc = new Allocator
-  val ZEROBIT = 1
-  val ONEBIT = 2
 
   // TODO: Make real bound?
   val solver = SolverFactory.newDefault()
@@ -99,7 +101,6 @@ abstract class BREUSolver[Term, Fun](
 
   def solve(problem : BREUSimProblem, asserted : Boolean) = 
   Timer.measure("BREUSolver.solve") {
-    // println("BREUSolver.solve")
 
     val result = 
     try {
@@ -116,14 +117,10 @@ abstract class BREUSolver[Term, Fun](
       }
     }
 
-    // println("\tChecking solution")
     if (asserted) {
       result match {
         case (breu.Result.SAT, Some(model)) => {
           if (!problem.verifySolution(model)) {
-            // println(problem)
-            // println("Model: " + model)
-            // println(problem.JSON)
             throw new Exception("False SAT")
           } else {
             // println("\t\tSAT asserted")
@@ -729,55 +726,5 @@ abstract class BREUSolver[Term, Fun](
     domains : Map[Term, Set[Term]],
     goals : Seq[Seq[Seq[Goal]]],
     functions : Seq[Seq[FunApp]]) : BREUInstance[Term, Fun] = createProblem(domains, goals, functions, for (_ <- goals) yield List())
-
-
-  // def createInstanceFromJson[Fun, Term](filename : String) = {
-  //   curId += 1
-
-  //   val lines = scala.io.Source.fromFile(filename).getLines
-  //   val json = lines.next
-
-  //   implicit def BREUGoalDecodeJson: DecodeJson[BREUGoal] =
-  //     DecodeJson(c => for {
-  //       subGoals <- (c --\ "subGoals").as[List[List[(Int,Int)]]]
-  //     } yield new BREUGoal(subGoals))
-
-  //   implicit def BREUEqDecodeJson: DecodeJson[BREUEq] =
-  //     DecodeJson(c => for {
-  //       fun <- (c --\ "fun").as[Int]
-  //       args <- (c --\ "args").as[List[Int]]
-  //       res <- (c --\ "res").as[Int]
-  //     } yield new BREUEq((fun, args, res)))
-
-  //   // HERE IS THE PROBLEM, need SUPERCLASS lenght of terms!
-
-  //   implicit def BREUSubProblemDecodeJson: DecodeJson[BREUSubProblem] =
-  //     DecodeJson(c => for {
-  //       terms <- (c --\ "terms").as[List[Int]]
-  //       domains <- (c --\ "domains").as[List[(Int,List[Int])]]
-  //       funEqs <- (c --\ "funEqs").as[List[BREUEq]]
-  //       goal <- (c --\ "goal").as[BREUGoal]
-  //     } yield new BREUSubProblem(terms,
-  //       (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
-  //       funEqs,
-  //       goal,
-  //       createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq)),
-  //       createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq))))
-
-  //   implicit def BREUSimProblemDecodeJson: DecodeJson[BREUSimProblem] =
-  //     DecodeJson(c => for {
-  //       terms <- (c --\ "terms").as[List[Int]]
-  //       domains <- (c --\ "domains").as[List[(Int,List[Int])]]
-  //       bits <- (c --\ "bits").as[Int]
-  //       order <- (c --\ "order").as[List[Int]]
-  //       subProblems <- (c --\ "subProblem").as[List[BREUSubProblem]]
-  //     } yield new BREUSimProblem(terms,
-  //       (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
-  //       bits, order, subProblems))
-
-  //   val problem = json.decodeOption[BREUSimProblem].get
-
-  //   new BREUInstance(curId, this, problem, Map())
-  // }
 }
 

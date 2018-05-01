@@ -1,9 +1,8 @@
 package breu;
 
+
 case class BREUGoal(val subGoals : Seq[Seq[(Int, Int)]]) {
-  override def toString = {
-    subGoals.mkString(" OR ")
-  }
+  override def toString = subGoals.mkString(" OR ")
 }
 
 case class BREUEq(val eq : (Int, Seq[Int], Int)) {
@@ -11,9 +10,7 @@ case class BREUEq(val eq : (Int, Seq[Int], Int)) {
   val args = eq._2
   val res = eq._3
 
-  override def toString = {
-    eq.toString
-  }
+  override def toString = fun + "(" + args.mkString(",") + ")=" + res
 }
 
 case class BREUSubProblem(
