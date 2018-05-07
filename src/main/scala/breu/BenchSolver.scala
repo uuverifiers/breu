@@ -31,9 +31,9 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
   override def createProblem(
     domains : Map[Term, Set[Term]],
     goals : Seq[Seq[Seq[(Term, Term)]]],
-    functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : Instance[Term, Fun] = {
+    eqs : Seq[Seq[(Fun, Seq[Term], Term)]]) : Instance[Term, Fun] = {
     BenchSolver.startTime = System.currentTimeMillis()
-    super.createProblem(domains, goals, functions)
+    super.createProblem(domains, goals, eqs)
   }
 
   def time[R](block: => R): (R, Int) = {

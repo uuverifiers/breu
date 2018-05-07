@@ -9,15 +9,15 @@ import scala.collection.mutable.{HashMap => MHashMap}
 
 class Disequalities(
   val size : Int,
-  val funEqsAux : Array[Eq],
+  val eqsAux : Array[Eq],
   val timeoutChecker : () => Unit) {
 
   def this(that : Disequalities) {
     this(that.size, Array(), that.timeoutChecker)
-    funArgs ++= that.funArgs
-    funRes ++= that.funRes
-    funFuns ++= that.funFuns
-    funEqs = that.funEqs
+    eqArgs ++= that.eqArgs
+    eqRes ++= that.eqRes
+    eqEqs ++= that.eqEqs
+    eqEqs = that.eqEqs
     // DQmap ++= that.DQmap
   }
 
@@ -26,14 +26,14 @@ class Disequalities(
     (for ((k, v) <- DQmap) yield {
       k + " = " + v
     }).mkString(", ") + "\n" + 
-    "funArgs: " + funArgs.size + "\n" +
-    "funRes: " + funRes.size + "\n" +
-    "funFuns: " + funFuns.size + "\n" +
-    "funEqs: " + funEqs.size + "\n"
+    "eqArgs: " + eqArgs.size + "\n" +
+    "eqRes: " + eqRes.size + "\n" +
+    "eqEqs: " + eqEqs.size + "\n" +
+    "eqEqs: " + eqEqs.size + "\n"
   }
 
   // TODO: Fix!
-  var funEqs = funEqsAux
+  var eqEqs = eqsAux
 
   // Stores the actual disequalities 
   // TODO: change to (size*size-1)/2
@@ -42,44 +42,44 @@ class Disequalities(
   // Buffer to store change to allow backtracking (old, s, t)
   var changes = ListBuffer() : ListBuffer[(Int, Int, Int)]
 
-  // Maps terms to funEqs with t in argument 
-  // | Term -> List(Function, Index, funEq)
-  var funArgs = MMap() : MMap[Int, ListBuffer[(Int, Int, Int)]]
+  // Maps terms to eqEqs with t in argument 
+  // | Term -> List(Eqction, Index, eqEq)
+  var eqArgs = MMap() : MMap[Int, ListBuffer[(Int, Int, Int)]]
 
-  // Maps terms to funEqs with t in result
-  // | Term -> List(Function, funEq)
-  var funRes = MMap() : MMap[Int, ListBuffer[(Int, Int)]]
+  // Maps terms to eqEqs with t in result
+  // | Term -> List(Eqction, eqEq)
+  var eqRes = MMap() : MMap[Int, ListBuffer[(Int, Int)]]
 
-  // Fun -> List[functions]
-  // Maps function symbols to funEqs with given function symbol 
-  // | Function -> List(funEqs)
-  var funFuns = MMap() : MMap[Int, ListBuffer[Int]]
+  // Eq -> List[eqctions]
+  // Maps eqction symbols to eqEqs with given eqction symbol 
+  // | Eqction -> List(eqEqs)
+  var eqFuns = MMap() : MMap[Int, ListBuffer[Int]]
 
   // if (DQ(i)(j) == 0)
   //   diseqCount += 1
 
-  for (f <- 0 until funEqs.length) {
-    val (fun, args, res) = (funEqs(f).fun, funEqs(f).args, funEqs(f).res)
+  for (f <- 0 until eqEqs.length) {
+    val (fun, args, res) = (eqEqs(f).fun, eqEqs(f).args, eqEqs(f).res)
 
     // Argument map
     for (i <- 0 until args.length) {
-      if (funArgs contains (args(i)))
-        funArgs.get(args(i)).get += ((fun, i, f))
+      if (eqArgs contains (args(i)))
+        eqArgs.get(args(i)).get += ((fun, i, f))
       else
-        funArgs += (args(i) -> ListBuffer((fun, i, f)))
+        eqArgs += (args(i) -> ListBuffer((fun, i, f)))
     }
 
     // Result map
-    if (funRes contains(res))
-      funRes.get(res).get += ((fun, f))
+    if (eqRes contains(res))
+      eqRes.get(res).get += ((fun, f))
     else
-      funRes += (res -> ListBuffer((fun, f)))
+      eqRes += (res -> ListBuffer((fun, f)))
 
     // Function symbol map
-    if (funFuns contains(fun))
-      funFuns.get(fun).get += f
+    if (eqFuns contains(fun))
+      eqFuns.get(fun).get += f
     else
-      funFuns += (fun -> ListBuffer(f))
+      eqFuns += (fun -> ListBuffer(f))
   }
 
   // TODO: diseqCount
@@ -261,12 +261,12 @@ class Disequalities(
 
 
       // Functionality
-      for ((fun1, i1, eq1) <- funArgs.getOrElse(s, List()); 
-        (fun2, i2, eq2) <- funArgs.getOrElse(t, List()); 
+      for ((fun1, i1, eq1) <- eqArgs.getOrElse(s, List()); 
+        (fun2, i2, eq2) <- eqArgs.getOrElse(t, List()); 
         if (fun1 == fun2 && i1 == i2 && eq1 != eq2)) yield {
 
-        val (args_i, r_i) = (funEqs(eq1).args, funEqs(eq1).res)
-        val (args_j, r_j) = (funEqs(eq2).args, funEqs(eq2).res)
+        val (args_i, r_i) = (eqEqs(eq1).args, eqEqs(eq1).res)
+        val (args_j, r_j) = (eqEqs(eq2).args, eqEqs(eq2).res)
 
         if (check(args_i zip args_j)) {
           addTodo((r_i, r_j), true)
@@ -277,12 +277,12 @@ class Disequalities(
 
       // Find all s, s.t. s = lhs and add s = rhs
       def transitivity(lhs : Int, rhs : Int) = Timer.measure("transitivity") {
-        for ((fun1, eq1) <- funRes getOrElse (lhs, List())) {
-          val args_i = funEqs(eq1).args
+        for ((fun1, eq1) <- eqRes getOrElse (lhs, List())) {
+          val args_i = eqEqs(eq1).args
 
-          // Find all matching functions
-          for (eq2 <- funFuns getOrElse (fun1, List())) {
-            val (args_j, s) = (funEqs(eq2).args, funEqs(eq2).res)
+          // Find all matching equations
+          for (eq2 <- eqFuns getOrElse (fun1, List())) {
+            val (args_j, s) = (eqEqs(eq2).args, eqEqs(eq2).res)
 
             // s = lhs => s = rhs
             // Unify s with all terms that are Funified with rhs
@@ -452,11 +452,10 @@ object Util {
 
   def BreunionFind(
     terms : Seq[Int],
-    equations : Seq[Eq],
+    eqs : Seq[Eq],
     assignments : Seq[(Int, Int)] = List()) 
   : UnionFind[Int]= {
 
-    val functions = equations
     val uf = new UnionFind[Int]
 
     for (t <- terms)
@@ -470,11 +469,8 @@ object Util {
     var changed = true
     while (changed) {
       changed = false
-      // All pairs of functions, if args_i = args_j, merge s_i with s_j
-      // for ((f_i, args_i, s_i) <- functions;
-      //   (f_j, args_j, s_j) <- functions;
-      for (eq1 <- functions; eq2 <- functions;
-        // if (f_i == f_j && uf(s_i) != uf(s_j))) {
+      // All pairs of eqs, if args_i = args_j, merge s_i with s_j
+      for (eq1 <- eqs; eq2 <- eqs;
         if (eq1.fun == eq2.fun && uf(eq1.res) != uf(eq2.res))) {
         var argsEquals = true
         for (i <- 0 until eq1.args.length) {

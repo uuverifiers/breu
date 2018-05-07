@@ -152,7 +152,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
     (tmpModel, assignments)
   }
 
-  // Given a list of domains, goals, functions, see if there is a solution to
+  // Given a list of domains, goals, eqs, see if there is a solution to
   // the simultaneous problem.
   override def solveaux(problem : Problem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
     reset
@@ -183,7 +183,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
       // TODO: Make table take a problem instead
 class Table(val bits : Int, alloc : Allocator,
   gt : GateTranslator, solver : ISolver, val terms : Seq[Int],
-  domains : Domains, functions : Seq[Eq],
+  domains : Domains, eqs : Seq[Eq],
   ZEROBIT : Int, ONEBIT : Int, DQ : Disequalities, 
   val goal : Seq[Seq[(Int, Int)]]) {
 
@@ -227,8 +227,8 @@ class Table(val bits : Int, alloc : Allocator,
     println("currentColum: " + currentColumn)
     for (t <- terms)
       println(t + " := {" + domains(t).mkString(", ") + "}")
-    println("functions:")
-    for (f <- functions)
+    println("eqs:")
+    for (f <- eqs)
       println("\t" + f)
     println("<-----" + ("---" * 3) + "-->")
   }
@@ -354,7 +354,7 @@ class Table(val bits : Int, alloc : Allocator,
   }
 
   def addDerivedColumn(timeoutChecker : () => Unit) = {
-    // For all pairs of functions with identical function symbols and
+    // For all pairs of eqs with identical function symbols and
     // different results,form a 3-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
     currentColumn += 1
 
@@ -383,11 +383,8 @@ class Table(val bits : Int, alloc : Allocator,
 
 
     val V =
-      // for ((f_i, args_i, s_i) <- functions;
-      //   (f_j, args_j, s_j) <- functions;
-      for (eq1 <- functions; eq2 <- functions;
+      for (eq1 <- eqs; eq2 <- eqs;
         if (eq1.fun == eq2.fun) && (eq1.res == eq2.res) && unifiable(eq1.args, eq2.args)) yield {
-        // if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
         val argBits =
           (for (i <- 0 until eq1.args.length) yield {
             val t1 = eq1.args(i) min eq2.args(i)
@@ -573,10 +570,7 @@ class Table(val bits : Int, alloc : Allocator,
     val eqBits = Array.tabulate(terms.length, terms.length)( (x, y) => -1)
 
     val V =
-      // for ((f_i, args_i, s_i) <- functions;
-      //   (f_j, args_j, s_j) <- functions;
-      for (eq1 <- functions; eq2 <-functions;
-        // if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
+      for (eq1 <- eqs; eq2 <-eqs;
         if (eq1.fun == eq2.fun) && (eq1.res != eq2.res) && unifiable(eq1.args, eq2.args)) yield {
 
         val argBits =

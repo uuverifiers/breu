@@ -13,8 +13,8 @@ class Constructor[Term, Fun]() {
   type Goal = Seq[(Term, Term)]
 
   val domains : ListBuffer[Domain] = ListBuffer()
-  val functions : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
-  val negatedFunctions : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
+  val eqs : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
+  val negatedEqs : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
 
   val goals : ListBuffer[ListBuffer[Goal]] = ListBuffer()
   var subProblems = 0
@@ -27,13 +27,13 @@ class Constructor[Term, Fun]() {
 
   def newSubproblem() = {
     subProblems += 1
-    functions += ListBuffer()
-    negatedFunctions += ListBuffer()
+    eqs += ListBuffer()
+    negatedEqs += ListBuffer()
     goals += ListBuffer()
   }
 
   def addFunction(sp : Int, f : FunApp) =
-    functions(sp) += f
+    eqs(sp) += f
 
   def addGoal(sp : Int, g : Goal) =
     goals(sp) += g
@@ -45,9 +45,9 @@ class Constructor[Term, Fun]() {
     (for ((t, d) <- domains) yield {
       "\t" + t + " -> " + d.mkString(",")
     }).mkString("\n") +
-    (for ((fs, gs) <- functions zip goals) yield {
+    (for ((fs, gs) <- eqs zip goals) yield {
       "< --- SUBPROBLEM --- >\n" +
-      "Functions:\n" +
+      "Eqs:\n" +
       (for ((f, args, r) <- fs) yield ("\t" + f + "(" + args.mkString(",") + ") = " + r)).mkString("\n") +
       "Goals:\n" +
       (for (g <- gs) yield ("\t" + g)).mkString("\n")
@@ -61,8 +61,8 @@ class Constructor[Term, Fun]() {
     val prob = solver.createProblem(
       domains.toMap,
       goals.toList,
-      functions.toList,
-      negatedFunctions.toList
+      eqs.toList,
+      negatedEqs.toList
     )
 
     // Solve Problem

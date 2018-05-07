@@ -3,14 +3,28 @@ package breu;
 
 case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
   override def toString = subGoals.mkString(" OR ")
-
   val terms : Set[Int] = subGoals.flatten.map(x => List(x._1, x._2)).flatten.toSet
+  def contains(term : Int) : Boolean = {
+    for (g <- subGoals)
+      for ((s, t) <- g)
+        if (s == term || t == term)
+          return true
+    return false
+  }
+
 }
 
 case class Eq(val fun : Int, val args : Seq[Int], val res : Int) {
   override def toString = fun + "(" + args.mkString(",") + ")=" + res
-
   val terms : Set[Int] = args.toSet + res
+  def contains(term : Int) : Boolean = {
+    if (res == term)
+      return true
+    for (a <- args)
+      if (a == term)
+        return true
+    return false
+  }
 }
 
 case class Domains(val domains : Map[Int, Set[Int]]) {
