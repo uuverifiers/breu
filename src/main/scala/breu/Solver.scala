@@ -71,8 +71,9 @@ abstract class Solver[Term, Fun](
   val maxSolverRuntime : Long) {
 
   var debug = false
+  type TermDomains = Map[Term, Set[Term]]
   type TermEq = (Fun, Seq[Term], Term)
-  type TermGoal = (Term, Term)
+  type TermGoal = Seq[Seq[(Term, Term)]]
 
   // Bit manipulation
   val alloc = new Allocator
@@ -644,8 +645,8 @@ abstract class Solver[Term, Fun](
 
 
   def createProblem(
-    domains : Map[Term, Set[Term]],
-    goals : Seq[Seq[Seq[(Term, Term)]]],
+    domains : TermDomains,
+    goals : Seq[TermGoal],
     functions : Seq[Seq[TermEq]],
     negFunctions : Seq[Seq[TermEq]]) : Instance[Term, Fun] = {
 
@@ -702,24 +703,14 @@ abstract class Solver[Term, Fun](
 
           val t = nextTerm
           nextTerm += 1
-          val newFun = Eq(funMap(f), args.map(termToInt), t)
-          val newGoal = List((t, termToInt(r)))
 
-          extraFunctions += newFun
-          extraSubGoals += newGoal
-
-          // println("NegativeTermEq " + nf + " converted to " + newFun + " and " + newGoal)
+          extraFunctions += Eq(funMap(f), args.map(termToInt), t)
+          extraSubGoals += List((t, termToInt(r)))
         }
 
-        val asd1 : Seq[Seq[(Int, Int)]] = (for (pairs <- goals) yield for ((s, t) <- pairs) yield (termToInt(s), termToInt(t)))
-        val asd2 : Seq[Seq[(Int, Int)]] = extraSubGoals
-        val newGoal  = Goal(asd1 ++ asd2)
+        val newGoal  = Goal((for (pairs <- goals) yield for ((s, t) <- pairs) yield (termToInt(s), termToInt(t))) ++ extraSubGoals)
         val newFunctions = (for ((f, args, r) <- funs) yield Eq(funMap(f), args.map(termToInt), termToInt(r))) ++ extraFunctions
 
-        // val newNegFunctions =
-        //   for (negFuns <- negFunctions)    
-        //   yield (for ((f, args, r) <- negFuns)
-        //   yield (funMap(f), args.map(termToInt), termToInt(r)))
         (newGoal, newFunctions : Seq[Eq])
       }
 
@@ -730,8 +721,8 @@ abstract class Solver[Term, Fun](
   }
 
   def createProblem(
-    domains : Map[Term, Set[Term]],
-    goals : Seq[Seq[Seq[(Term, Term)]]],
+    domains : TermDomains,
+    goals : Seq[TermGoal],
     functions : Seq[Seq[TermEq]]) : Instance[Term, Fun] = createProblem(domains, goals, functions, for (_ <- goals) yield List())
 }
 
