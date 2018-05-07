@@ -36,23 +36,20 @@ class BREUConstructor[Term, Fun]() {
   def addGoal(sp : Int, g : Goal) =
     goals(sp) += g
 
-  def print() = {
-    println("BREU CONSTRUCTOR")
-    println("Subproblems: " + subProblems)
-    println("Domains:")
-    for ((t, d) <- domains) {
-      println("\t" + t + " -> " + d.mkString(","))
-    }
-
-    for ((fs, gs) <- functions zip goals) {
-      println("< --- SUBPROBLEM --- >")
-      println("Functions:")
-      for ((f, args, r) <- fs)
-        println("\t" + f + "(" + args.mkString(",") + ") = " + r)
-      println("Goals:")
-      for (g <- gs)
-        println("\t" + g)
-    }
+  def print() : String = {
+    "BREU CONSTRUCTOR\n" +
+    "Subproblems: " + subProblems + "\n" +
+    "Domains:\n" +
+    (for ((t, d) <- domains) yield {
+      "\t" + t + " -> " + d.mkString(",")
+    }).mkString("\n") +
+    (for ((fs, gs) <- functions zip goals) yield {
+      "< --- SUBPROBLEM --- >\n" +
+      "Functions:\n" +
+      (for ((f, args, r) <- fs) yield ("\t" + f + "(" + args.mkString(",") + ") = " + r)).mkString("\n") +
+      "Goals:\n" +
+      (for (g <- gs) yield ("\t" + g)).mkString("\n")
+    }).mkString("\n")
   }
 
   def checkTO() = {
