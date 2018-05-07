@@ -340,7 +340,7 @@ abstract class Solver[Term, Fun](
     assignments
   }
 
-  def reorderProblems(terms : Seq[Seq[Int]], domains : Seq[Map[Int,Set[Int]]],
+  def reorderProblems(terms : Seq[Seq[Int]], domains : Seq[Domains],
     functions : Seq[Seq[(Int, Seq[Int], Int)]], goals : Seq[Seq[Seq[(Int, Int)]]]) : Seq[Int] = {
     val count = goals.length
 
@@ -387,7 +387,7 @@ abstract class Solver[Term, Fun](
   }
 
   def createDQ(terms : Seq[Int],
-    domains : Map[Int, Set[Int]],
+    domains : Domains,
     functions : Seq[(Int, Seq[Int], Int)]) = {
 
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
@@ -395,14 +395,14 @@ abstract class Solver[Term, Fun](
 
     val DQ = new Disequalities(size, functions.map(x => Eq(x._1, x._2, x._3)).toArray, timeoutChecker)
     for (t <- terms) {
-      val domain = domains.getOrElse(t, List(t))
+      val domain = domains(t)
 
       for (d <- domain) {
         DQ.cascadeRemove(t, d)
       }
 
       for (tt <- terms; if t != tt) {
-        val ttDomain = domains.getOrElse(tt, Set(tt))
+        val ttDomain = domains(tt)
         if (domain exists ttDomain) {
           DQ.cascadeRemove(t, tt)
         }
@@ -414,21 +414,21 @@ abstract class Solver[Term, Fun](
 
   def createBaseDQ(
     terms : Seq[Int],
-    domains : Map[Int, Set[Int]],
+    domains : Domains,
     functions : Seq[(Int, Seq[Int], Int)]) = {
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
     val baseDQ = new Disequalities(size, functions.map(x => Eq(x._1, x._2, x._3)).toArray, timeoutChecker)
     for (t <- terms) {
-      val domain = domains.getOrElse(t, List(t))
+      val domain = domains(t)
 
       for (d <- domain) {
         baseDQ.remove(t, d)
       }
 
       for (tt <- terms; if t != tt) {
-        val ttDomain = domains.getOrElse(tt, Set(tt))
+        val ttDomain = domains(tt)
         if (domain exists ttDomain)
           baseDQ.remove(t, tt)
       }
@@ -458,12 +458,12 @@ abstract class Solver[Term, Fun](
     termSet.toSet
   }
 
-  private def intExtractTerms(domains : Map[Int, Set[Int]],
+  private def intExtractTerms(domains : Domains,
     functions : Seq[IntFunApp],
     goals : Seq[Seq[IntGoal]]) : Set[Int] = {
 
     val termSet = MSet() : MSet[Int]
-    for ((_, d) <- domains)
+    for ((_, d) <- domains.domains)
       for (t <- d)
         termSet += t
     for ((s,t) <- goals.flatten) {
@@ -524,7 +524,7 @@ abstract class Solver[Term, Fun](
 
   // Create a problem from internal (Integer) representation
   def intCreateProblem(
-    domains : Map[Int, Set[Int]],
+    domains : Domains,
     subProblems : Seq[(Seq[Seq[IntGoal]], Seq[IntFunApp])]) : SimProblem = {
 
     val problemCount = subProblems.length
@@ -585,13 +585,13 @@ abstract class Solver[Term, Fun](
         // val ft = newTerms
 
         val fd =
-          (for ((t, d) <- domains; if (ft contains t)) yield {
+          Domains((for ((t, d) <- domains.domains; if (ft contains t)) yield {
             (t, d.filter(x => ft contains x))
-          }).toMap
+          }).toMap)
         // val fd = newDomains
         val fg = goals
         (ff, ft, fd, fg)
-      }) : Seq[(Seq[(Int, Seq[Int], Int)], Seq[Int], Map[Int, Set[Int]], Seq[Seq[IntGoal]])]
+      }) : Seq[(Seq[(Int, Seq[Int], Int)], Seq[Int], Domains, Seq[Seq[IntGoal]])]
 
     val filterTerms = for ((_, ft, _, _) <- ffs) yield ft
     val filterDomains = for ((_, _, fd, _) <- ffs) yield fd
@@ -669,10 +669,10 @@ abstract class Solver[Term, Fun](
     // TODO: Maybe add option for this?: Each term is added to its own domain
     // TODO: http://stackoverflow.com/questions/1715681/scala-2-8-breakout/1716558#1716558
     val newDomains = 
-      (for (t <- allTerms) yield {
+      Domains((for (t <- allTerms) yield {
         val oldDomain = domains.getOrElse(t, Set(t))
         (termToInt(t) -> oldDomain.map(termToInt))
-      }).toMap
+      }).toMap)
 
 
     // 

@@ -157,7 +157,7 @@ class Instance[Term, Fun](
 // TRIVIAL SOLUTIONS
 //
 
-  def tsPairs(assignments : MMap[Int, Int], domains : Map[Int, Set[Int]],
+  def tsPairs(assignments : MMap[Int, Int], domains : Domains,
     goals : Seq[(Int, Int)]) : (Option[MMap[Int, Int]]) = {
 
     if (goals.isEmpty) {
@@ -174,7 +174,9 @@ class Instance[Term, Fun](
         else
           None
       } else {
-        val lhsDomain = domains.getOrElse(lhs, Set())
+        // TODO: Is empty set required here?
+        // val lhsDomain = domains.getOrElse(lhs, Set())
+        val lhsDomain = domains(lhs)
         if (lhsDomain contains rhs) {
           assignments(lhs) = rhs
           tsPairs(assignments, domains, goals.tail)
@@ -187,7 +189,7 @@ class Instance[Term, Fun](
 
   // Returns an (extended) assignment if one is possible, else None
   def tsSubgoals(
-    domains : Map[Int, Set[Int]],
+    domains : Domains,
     subGoals : Seq[Seq[(Int, Int)]],
     assignment : Map[Int, Int]) : Option[MMap[Int, Int]] = {
     for (pairs <- subGoals) {
@@ -202,7 +204,7 @@ class Instance[Term, Fun](
     None
   }
 
-  def trivialSolution(domains : Map[Int, Set[Int]],
+  def trivialSolution(domains : Domains,
     goals : Seq[Seq[Seq[(Int, Int)]]]) : (Option[MMap[Int, Int]]) = {
     var assignment = MMap() : MMap[Int, Int]
 

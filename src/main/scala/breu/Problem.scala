@@ -1,6 +1,5 @@
 package breu;
 
-
 case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
   override def toString = subGoals.mkString(" OR ")
 }
@@ -9,9 +8,16 @@ case class Eq(val fun : Int, val args : Seq[Int], val res : Int) {
   override def toString = fun + "(" + args.mkString(",") + ")=" + res
 }
 
+case class Domains(val domains : Map[Int, Set[Int]]) {
+  override def toString = domains.mkString("\n")
+  def apply(i : Int) = {
+    domains.getOrElse(i, Set(i))
+  }
+}
+
 case class SubProblem(
   val terms : Seq[Int],
-  val domains : Map[Int, Set[Int]],
+  val domains : Domains,
   val funEqs : Seq[Eq],
   val goal : Goal,
   val DQ : Disequalities,
@@ -55,7 +61,7 @@ case class SubProblem(
 
 case class SimProblem(
   val terms : Seq[Int],
-  val domains : Map[Int, Set[Int]],
+  val domains : Domains,
   val bits : Int,
   val order : Seq[Int],
   val subProblems : Seq[SubProblem]) {
@@ -63,44 +69,44 @@ case class SimProblem(
   val size = subProblems.length
 
   override def toString  = {
-    var str = ""
-    str += "//-------------\n"
+    val builder = new StringBuilder
+    builder ++= "//-------------\n"
     for (t <- terms)
-      str += "| " + t + " = {" + (domains.getOrElse(t, Set(t))).mkString(", ") + "}" + "\n"
-    str += "| Size: " + size + "\n"
-    str += "| Bits: " + bits + "\n"
-    str += "| Order: " + order + "\n"
+      builder ++= "| " + t + " = {" + (domains(t)).mkString(", ") + "}" + "\n"
+    builder ++= "| Size: " + size + "\n"
+    builder ++= "| Bits: " + bits + "\n"
+    builder ++= "| Order: " + order + "\n"
     for (p <- 0 until size) {
-      str += "+--------\n"
-      str += "| terms: " + subProblems(p).terms + "\n"
-      str += "| domains: " + subProblems(p).domains + "\n"
-      str += "| funEqs: " + subProblems(p).funEqs + "\n"
-      str += "| goal: " + subProblems(p).goal + "\n"
-      // str += "| DQ: " + subProblems(p).DQ + "\n"
-      // str += "| baseDQ: " + subProblems(p).baseDQ + "\n"
-      str += subProblems(p).toString + "\n"
+      builder ++= "+--------\n"
+      builder ++= "| terms: " + subProblems(p).terms + "\n"
+      builder ++= "| domains: " + subProblems(p).domains + "\n"
+      builder ++= "| funEqs: " + subProblems(p).funEqs + "\n"
+      builder ++= "| goal: " + subProblems(p).goal + "\n"
+      // builder ++= "| DQ: " + subProblems(p).DQ + "\n"
+      // builder ++= "| baseDQ: " + subProblems(p).baseDQ + "\n"
+      builder ++= subProblems(p).toString + "\n"
     }
-    str += "\\\\-------------\n"
-    str
+    builder ++= "\\\\-------------\n"
+    builder.toString
   }
 
   def saveToFile(filename : String) = {
-    var str = ""
-    str += "DOMAINS\n"
+    val builder = new StringBuilder
+    builder ++= "DOMAINS\n"
     for (t <- terms)
-      str += t + "=" + (domains.getOrElse(t, Set(t))).mkString(",") + "\n"
+      builder ++= t + "=" + (domains(t)).mkString(",") + "\n"
     for (p <- 0 until size) {
-      str += "PROBLEM\n"
+      builder ++= "PROBLEM\n"
       for (f <- subProblems(p).funEqs)
-        str += f.fun + "(" + f.args.mkString(",") + ")=" + f.res + "\n"
+        builder ++= f.fun + "(" + f.args.mkString(",") + ")=" + f.res + "\n"
       for (g <- subProblems(p).goal.subGoals)
-        str += g.map(x => x._1 + "=?" + x._2).mkString("|") + "\n"
+        builder ++= g.map(x => x._1 + "=?" + x._2).mkString("|") + "\n"
     }
 
     import java.io._
     new File("breu-debug/").mkdir()
     val pw = new PrintWriter(filename)
-    pw.write(str)
+    pw.write(builder.toString)
     pw.close
   }
 

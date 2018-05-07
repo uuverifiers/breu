@@ -183,7 +183,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
       // TODO: Make table take a problem instead
 class Table(val bits : Int, alloc : Allocator,
   gt : GateTranslator, solver : ISolver, val terms : Seq[Int],
-  domains : Map[Int, Set[Int]], functions : Seq[Eq],
+  domains : Domains, functions : Seq[Eq],
   ZEROBIT : Int, ONEBIT : Int, DQ : Disequalities, 
   val goal : Seq[Seq[(Int, Int)]]) {
 
