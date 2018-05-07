@@ -1,0 +1,6 @@
+DOMAINS
+a=a
+b=b
+X=a,X
+PROBLEM
+X=?b

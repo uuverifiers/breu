@@ -1,21 +1,19 @@
-object BREUtest {
+package breu;
+
+object BREUtester {
 
   def checkTO() = {
   }
 
-  def main(args : Array[String]) : Unit = {
-    if (args.length < 1)
-      return println("Usage: BREUtest input.breu")
-
+  def test(file : String) : breu.Result.Value = {
     val cons = new breu.BREUConstructor[String,String]()
 
-    val input = io.Source.fromFile(args(0)).getLines.toList
+    val input = io.Source.fromFile(file).getLines.toList
 
     var section = ""
 
     val dPattern = "(.*)=(.*)".r
     val fPattern = "(.*)\\((.*)\\)=(.*)".r
-    // val gPattern = "((.*)=\\?(.*)\\|?)+".r
     val gPattern = "(.*=\\?.*\\|?)+".r    
 
     for (l <- input) {
@@ -23,9 +21,7 @@ object BREUtest {
         case dPattern(t,d) if section == "domains" => cons.addDomain(t, d.split(",").toSet)
         case fPattern(f,ts,t) if section == "globals" => cons.addGlobalFunction(f, ts.split(","), t)
         case fPattern(f,ts,t) if section == "problem" => cons.addFunction(f, ts.split(","), t)
-          // case gPattern(lhs,rhs) if section == "problem" => cons.addGoal(List((lhs, rhs)))
         case gPattern(sgoals) => {
-          println("GPATTERN: " + sgoals)
           val sgPattern = "(.*)=\\?(.*)".r
           val sgs = 
             for (sg <- sgoals.split("\\|")) yield {
@@ -44,17 +40,6 @@ object BREUtest {
       }
     }
 
-    cons.print()
-
-    val t0 = System.nanoTime()
-    cons.solveLazy(true)
-    val t1 = System.nanoTime()
-    val runTime = t1 - t0
-    println("Time: " + runTime/1000000 + " ms")
-    println("UnitClauses: ")
-    for (uc <- cons.unitClauses)
-      println("\t" + uc)
-
-
+    cons.solveLazy()
   }
 }

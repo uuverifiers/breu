@@ -73,10 +73,8 @@ class BREUConstructor[Term, Fun]() {
 
     // Solve Problem
     val res = prob.solve
-
-    println(res)
-
     model = prob.model
+    res
   }
 
 
@@ -85,7 +83,7 @@ class BREUConstructor[Term, Fun]() {
     val solver = new breu.TableSolver[Term,Fun](checkTO, 60000)
     if (debug)
       solver.debug = true
-    solve(solver)
+    val ret = solve(solver)
     if (debug) {
       tableColumns = 
         (for (t <- solver.tables) yield {
@@ -95,16 +93,18 @@ class BREUConstructor[Term, Fun]() {
             0
         }).toList
     }
+    ret
   }
 
   def solveLazy(debug : Boolean = false) = {
     val solver = new breu.LazySolver[Term,Fun](checkTO, 60000)
     if (debug)
       solver.debug = true
-    solve(solver)
+    val ret = solve(solver)
     if (debug) {
       unitClauses = solver.unitBlockingClauses.toList
     }
+    ret
   }  
 
 }
