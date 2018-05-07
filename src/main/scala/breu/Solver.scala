@@ -4,13 +4,10 @@ import org.sat4j.core._
 import org.sat4j.specs._
 import org.sat4j.minisat._
 import org.sat4j.tools._
-
 import java.io.FileInputStream
 import java.io.ObjectInputStream
 import java.io.File
-
 import Timer._
-
 import scala.collection.mutable.{Map => MMap}
 import scala.collection.mutable.{Set => MSet}
 import scala.collection.mutable.ListBuffer
@@ -35,10 +32,10 @@ class Allocator {
 }
 
 
-//
-//  Three different result types
-//  UKNOWN generally indicates an error
-//
+/**
+  * Three different result types
+  * UKNOWN generally indicates an error
+  */
 object Result extends Enumeration {
   type Result = Value
   val SAT, UNSAT, UNKNOWN = Value
@@ -80,10 +77,6 @@ abstract class Solver[Term, Fun](
   val ZEROBIT = 1
   val ONEBIT = 2    
   
-  //
-  //   CONSTRUCTOR METHOD BEGIN
-  //
-
   // TODO: Make real bound?
   val solver = SolverFactory.newDefault()
   val MAXVAR = 1000000;
@@ -456,32 +449,6 @@ abstract class Solver[Term, Fun](
     termSet.toSet
   }
 
-  private def intExtractTerms(domains : Domains,
-    functions : Seq[Eq],
-    goals : Goal) : Set[Int] = {
-
-    val termSet = MSet() : MSet[Int]
-    // for ((_, d) <- domains.domains)
-    //   for (t <- d)
-    //     termSet += t
-    termSet ++= domains.terms
-    termSet ++= functions.map(_.terms).flatten
-    termSet ++= goals.terms
-
-    // for ((s,t) <- goals.flatten) {
-    //   termSet += s
-    //   termSet += t
-    // }
-    // for ((_, args, r) <- functions) {
-    //   for (t <- args)
-    //     termSet += t
-    //   termSet += r
-    // }
-    
-    termSet.toSet
-  }
-
-
   private def createTermMapping(
     terms : Seq[Term],
     domains : Map[Term, Set[Term]])
@@ -530,13 +497,9 @@ abstract class Solver[Term, Fun](
     subProblems : Seq[(Goal, Seq[Eq])]) : Problem = {
 
     val problemCount = subProblems.length
-    val termSets = 
-      for (p <- 0 until problemCount) yield {
-        val (goal, eqs) = subProblems(p)
-        intExtractTerms(domains, eqs, goal)
-      }
 
-    val allTerms = (termSets.:\(Set() : Set[Int])(_ ++ _)).toList
+    val allTerms = (domains.terms ++ subProblems.map(x => x._1.terms ++ x._2.map(_.terms).flatten).flatten).toList
+
     val bits = Util.binlog(allTerms.length)
 
     val arr = Array.ofDim[Int](allTerms.length, allTerms.length)

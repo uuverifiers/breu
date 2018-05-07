@@ -1,7 +1,6 @@
 package breu;
 
 
-
 case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
   override def toString = subGoals.mkString(" OR ")
 
