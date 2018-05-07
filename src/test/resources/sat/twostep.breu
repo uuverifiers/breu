@@ -5,7 +5,11 @@ X=a,b,X
 Y=a,b,X,Y
 c=c
 d=d
+e=e
+f=f
 PROBLEM
-f(a,X)=c
-f(Y,b)=d
-c=?d
+f(c)=e
+f(d)=f
+g(a,X)=c
+g(Y,b)=d
+e=?f

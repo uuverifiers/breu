@@ -1,11 +1,11 @@
 DOMAINS
 a=a
 b=b
-X=a,b,X
-Y=a,b,X,Y
 c=c
 d=d
 PROBLEM
-f(a,X)=c
-f(Y,b)=d
+t()=a
+t()=b
+f(a)=c
+f(b)=d
 c=?d

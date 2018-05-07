@@ -3,9 +3,10 @@ a=a
 b=b
 X=a,b,X
 Y=a,b,X,Y
+Z=a,b,X,Y,Z
 c=c
 d=d
 PROBLEM
-f(a,X)=c
-f(Y,b)=d
+f(a,b,X,Y,Z)=c
+f(X,Y,a,b,Z)=d
 c=?d

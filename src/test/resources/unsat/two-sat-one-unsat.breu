@@ -1,0 +1,16 @@
+DOMAINS
+a=a
+b=b
+c=c
+PROBLEM
+t()=a
+t()=b
+a=?b
+PROBLEM
+t()=a
+t()=b
+a=?b
+PROBLEM
+t()=a
+t()=b
+b=?c

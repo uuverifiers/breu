@@ -9,3 +9,7 @@ PROBLEM
 f(a,X)=c
 f(Y,b)=d
 c=?d
+PROBLEM
+f(X,a)=c
+f(b,Y)=d
+c=?d

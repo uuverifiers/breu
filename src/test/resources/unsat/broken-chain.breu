@@ -1,0 +1,14 @@
+DOMAINS
+a=a
+b=b
+c=c
+d=d
+e=e
+PROBLEM
+f()=a
+f()=b
+g()=b
+g()=c
+h()=c
+h()=d
+a=?e
