@@ -23,7 +23,7 @@ object BenchSolver {
 
 class BenchSolver[Term, Fun](timeoutChecker : () => Unit, 
                               maxSolverRuntime : Long)  
-    extends BREUSolver[Term, Fun](BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime) {
+    extends Solver[Term, Fun](BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime) {
 
 
   override def getStat(res : breu.Result.Result) = { res.toString }
@@ -31,7 +31,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
   override def createProblem(
     domains : Map[Term, Set[Term]],
     goals : Seq[Seq[Seq[(Term, Term)]]],
-    functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : BREUInstance[Term, Fun] = {
+    functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : Instance[Term, Fun] = {
     BenchSolver.startTime = System.currentTimeMillis()
     super.createProblem(domains, goals, functions)
   }
@@ -43,7 +43,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
     (result, ((t1 - t0)/1000000).toInt)
   }
 
-  def debugPrint(problem : BREUSimProblem) = {
+  def debugPrint(problem : SimProblem) = {
     println("---NEW PROBLEM---")
     println("ID:" + scala.util.Random.nextInt(2147483647))
     println("SIZE:" + problem.size)
@@ -56,7 +56,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
     println("---END PROBLEM---")
   }
 
-  override def solveaux(problem : BREUSimProblem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
+  override def solveaux(problem : SimProblem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
     reset
 
     println("Solving")
@@ -101,7 +101,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
     }
   }
 
-  def unsatCoreAux(problem : BREUSimProblem, timeout : Int) = {
+  def unsatCoreAux(problem : SimProblem, timeout : Int) = {
     lsolver.unsatCore(problem, timeout)
   }
 

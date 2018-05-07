@@ -6,7 +6,7 @@ import scala.collection.mutable.ListBuffer
  * Helper class for constructing BREU-problems
  * 
  */
-class BREUConstructor[Term, Fun]() {
+class Constructor[Term, Fun]() {
   type Domain = (Term, Set[Term])
   type FunApp = (Fun, Seq[Term], Term)
   type Goal = Seq[(Term, Term)]
@@ -37,7 +37,7 @@ class BREUConstructor[Term, Fun]() {
     goals(sp) += g
 
   def print() : String = {
-    "BREU CONSTRUCTOR\n" +
+    " CONSTRUCTOR\n" +
     "Subproblems: " + subProblems + "\n" +
     "Domains:\n" +
     (for ((t, d) <- domains) yield {
@@ -52,10 +52,9 @@ class BREUConstructor[Term, Fun]() {
     }).mkString("\n")
   }
 
-  def checkTO() = {
-  }
+  def checkTO() = {}
 
-  private def solve(solver : breu.BREUSolver[Term,Fun]) = {
+  private def solve(solver : breu.Solver[Term,Fun]) = {
     // Create Problem
     val prob = solver.createProblem(
       domains.toMap,

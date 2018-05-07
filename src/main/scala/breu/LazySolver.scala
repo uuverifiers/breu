@@ -11,17 +11,17 @@ import scala.collection.mutable.{Set => MSet, ListBuffer}
 
 class LazySolver[Term, Fun](timeoutChecker : () => Unit, 
                               maxSolverRuntime : Long)  
-    extends BREUSolver[Term, Fun](timeoutChecker, maxSolverRuntime) {
+    extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime) {
 
   case class LazySolverException(msg : String) extends RuntimeException(msg)
   // var preClauses = List() : List[(Int, Int)]
 
   // // TODO: Make this nicer, e.g., make a LazyInstance instead
-  // def addBlockingClauses(instance : BREUInstance, blockingClauses : Seq[(Term, Term)]) = {
+  // def addBlockingClauses(instance : Instance, blockingClauses : Seq[(Term, Term)]) = {
   //   preClauses = blockingClauses.map(x => (instance.termMap(x._1), instance.termMap(x._2)))
   // }
 
-  // Solve the BREU problem by:
+  // Solve the  problem by:
   // (1) Generate a random assignments A
   // (2) Check if A is a solution to the problem
   // (2a) if NO, go to (3)
@@ -29,7 +29,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   // (3) Generate blocking clause B that excludes A
   // (4) Add B to the constraints and generate new assignment A'
   // (5) Let A = A' and go to (2)
-  override def solveaux(problem : BREUSimProblem)
+  override def solveaux(problem : SimProblem)
       : (breu.Result.Result, Option[Map[Int, Int]]) =
     Timer.measure("LazySolver.solveaux") {
       reset
@@ -44,7 +44,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
       val blockingProblem = Array.ofDim[Boolean](problem.size)
       unitClauses.clear
 
-      def handleBlockingProblem(cp : BREUSubProblem, solution : Map[Int, Int]) =
+      def handleBlockingProblem(cp : SubProblem, solution : Map[Int, Int]) =
         Timer.measure("handleBlockingProblem") {
           // val DQ = new Disequalities(cp.DQ)
           val DQ = new Disequalities(cp.terms.max+1, cp.funEqs.toArray, timeoutChecker)
@@ -150,7 +150,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   override def getStat(result : breu.Result.Result) = 
     "LAZY>RESULT:" + result + ",BLOCKINGCLAUSES:" + bcCount
 
-  def unsatCoreAux(problem : BREUSimProblem, timeout : Int) = lastUnsatCore
+  def unsatCoreAux(problem : SimProblem, timeout : Int) = lastUnsatCore
 
   def unitBlockingClauses = unitClauses
 

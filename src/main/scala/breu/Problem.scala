@@ -1,11 +1,11 @@
 package breu;
 
 
-case class BREUGoal(val subGoals : Seq[Seq[(Int, Int)]]) {
+case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
   override def toString = subGoals.mkString(" OR ")
 }
 
-case class BREUEq(val eq : (Int, Seq[Int], Int)) {
+case class Eq(val eq : (Int, Seq[Int], Int)) {
   val fun = eq._1
   val args = eq._2
   val res = eq._3
@@ -13,16 +13,16 @@ case class BREUEq(val eq : (Int, Seq[Int], Int)) {
   override def toString = fun + "(" + args.mkString(",") + ")=" + res
 }
 
-case class BREUSubProblem(
+case class SubProblem(
   val terms : Seq[Int],
   val domains : Map[Int, Set[Int]],
-  val funEqs : Seq[BREUEq],
-  val goal : BREUGoal,
+  val funEqs : Seq[Eq],
+  val goal : Goal,
   val DQ : Disequalities,
   val baseDQ : Disequalities) {
 
   override def toString = {
-    "BREUSubProblem"
+    "SubProblem"
   }
 
   def solvable = {
@@ -57,12 +57,12 @@ case class BREUSubProblem(
   }
 }
 
-case class BREUSimProblem(
+case class SimProblem(
   val terms : Seq[Int],
   val domains : Map[Int, Set[Int]],
   val bits : Int,
   val order : Seq[Int],
-  val subProblems : Seq[BREUSubProblem]) {
+  val subProblems : Seq[SubProblem]) {
 
   val size = subProblems.length
 

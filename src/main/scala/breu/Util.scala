@@ -9,7 +9,7 @@ import scala.collection.mutable.{HashMap => MHashMap}
 
 class Disequalities(
   val size : Int,
-  val funEqsAux : Array[BREUEq],
+  val funEqsAux : Array[Eq],
   val timeoutChecker : () => Unit) {
 
   def this(that : Disequalities) {
@@ -452,7 +452,7 @@ object Util {
 
   def BreunionFind(
     terms : Seq[Int],
-    equations : Seq[BREUEq],
+    equations : Seq[Eq],
     assignments : Seq[(Int, Int)] = List()) 
   : UnionFind[Int]= {
 

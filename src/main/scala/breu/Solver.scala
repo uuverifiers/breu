@@ -66,7 +66,7 @@ class Stats {
  * Requires solveaux and unsatCore to be defined
  * 
  */
-abstract class BREUSolver[Term, Fun](
+abstract class Solver[Term, Fun](
   val timeoutChecker : () => Unit,
   val maxSolverRuntime : Long) {
 
@@ -95,12 +95,12 @@ abstract class BREUSolver[Term, Fun](
 
   val S = new Stats
   var curId = 0
-  var previousInstance = None : Option[BREUInstance[Term, Fun]]
+  var previousInstance = None : Option[Instance[Term, Fun]]
 
   def getStat(result : breu.Result.Result) : String
 
-  def solve(problem : BREUSimProblem, asserted : Boolean) = 
-  Timer.measure("BREUSolver.solve") {
+  def solve(problem : SimProblem, asserted : Boolean) = 
+  Timer.measure("Solver.solve") {
 
     val result = 
     try {
@@ -138,7 +138,7 @@ abstract class BREUSolver[Term, Fun](
     }
   }
 
-  def unsatCore(problem : BREUSimProblem, timeout : Int) = {
+  def unsatCore(problem : SimProblem, timeout : Int) = {
     val core =
       unsatCoreAux(problem, timeout)
     assert(!core.isEmpty)
@@ -146,10 +146,10 @@ abstract class BREUSolver[Term, Fun](
   }
 
   // Asbtract functions
-  protected def solveaux(problem : BREUSimProblem) : 
+  protected def solveaux(problem : SimProblem) : 
       (Result.Result, Option[Map[Int, Int]])
 
-  def unsatCoreAux(problem : BREUSimProblem, timeout : Int) : Seq[Int]
+  def unsatCoreAux(problem : SimProblem, timeout : Int) : Seq[Int]
 
   def reset = {
     solver.reset()
@@ -208,8 +208,8 @@ abstract class BREUSolver[Term, Fun](
   // def verifySolution(
   //   terms : Seq[Int],
   //   assignment : Map[Int,Int],
-  //   functions : Seq[BREUEq],
-  //   goal : BREUGoal)
+  //   functions : Seq[Eq],
+  //   goal : Goal)
   //     : Boolean = {
 
   //   val uf = Util.BreunionFind(terms, functions, assignment.toList)
@@ -307,7 +307,7 @@ abstract class BREUSolver[Term, Fun](
     eqBit
   }
 
-  def createAssignments(problem : BREUSimProblem) : Map[Int, Seq[Int]] = {
+  def createAssignments(problem : SimProblem) : Map[Int, Seq[Int]] = {
     // Connects each term with its list of bits
     // (e.g. assignment(a) = List(3,4,5))
     val terms = problem.terms
@@ -393,7 +393,7 @@ abstract class BREUSolver[Term, Fun](
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val DQ = new Disequalities(size, functions.map(x => BREUEq(x)).toArray, timeoutChecker)
+    val DQ = new Disequalities(size, functions.map(x => Eq(x)).toArray, timeoutChecker)
     for (t <- terms) {
       val domain = domains.getOrElse(t, List(t))
 
@@ -419,7 +419,7 @@ abstract class BREUSolver[Term, Fun](
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val baseDQ = new Disequalities(size, functions.map(x => BREUEq(x)).toArray, timeoutChecker)
+    val baseDQ = new Disequalities(size, functions.map(x => Eq(x)).toArray, timeoutChecker)
     for (t <- terms) {
       val domain = domains.getOrElse(t, List(t))
 
@@ -525,7 +525,7 @@ abstract class BREUSolver[Term, Fun](
   // Create a problem from internal (Integer) representation
   def intCreateProblem(
     domains : Map[Int, Set[Int]],
-    subProblems : Seq[(Seq[Seq[IntGoal]], Seq[IntFunApp])]) : BREUSimProblem = {
+    subProblems : Seq[(Seq[Seq[IntGoal]], Seq[IntFunApp])]) : SimProblem = {
 
     val problemCount = subProblems.length
     val termSets = 
@@ -618,18 +618,18 @@ abstract class BREUSolver[Term, Fun](
     val reorderDomains = (for (i <- order) yield filterDomains(i))
     val reorderGoals = (for (i <- order) yield filterGoals(i))
     val reorderFunctions =
-      (for (i <- order) yield filterFunctions(i).map(x => new BREUEq(x)))
+      (for (i <- order) yield filterFunctions(i).map(x => new Eq(x)))
     val reorderDQ = (for (i <- order) yield DQ(i))
     val reorderBaseDQ = (for (i <- order) yield baseDQ(i))
 
 
     val problems =
       for (i <- 0 until problemCount) yield
-        new BREUSubProblem(reorderTerms(i), reorderDomains(i),
-          reorderFunctions(i), new BREUGoal(reorderGoals(i)),
+        new SubProblem(reorderTerms(i), reorderDomains(i),
+          reorderFunctions(i), new breu.Goal(reorderGoals(i)),
           reorderDQ(i), reorderBaseDQ(i))
 
-    new BREUSimProblem(
+    new SimProblem(
       allTerms,
       domains,
       bits,
@@ -642,7 +642,7 @@ abstract class BREUSolver[Term, Fun](
     domains : Map[Term, Set[Term]],
     goals : Seq[Seq[Seq[Goal]]],
     functions : Seq[Seq[FunApp]],
-    negFunctions : Seq[Seq[FunApp]]) : BREUInstance[Term, Fun] = {
+    negFunctions : Seq[Seq[FunApp]]) : Instance[Term, Fun] = {
 
     curId += 1
     val problemCount = goals.length
@@ -718,13 +718,13 @@ abstract class BREUSolver[Term, Fun](
 
     val problem = intCreateProblem(newDomains, subProblems)
 
-    new BREUInstance[Term, Fun](curId, this, problem, termToInt.toMap,
+    new Instance[Term, Fun](curId, this, problem, termToInt.toMap,
                                domains)
   }
 
   def createProblem(
     domains : Map[Term, Set[Term]],
     goals : Seq[Seq[Seq[Goal]]],
-    functions : Seq[Seq[FunApp]]) : BREUInstance[Term, Fun] = createProblem(domains, goals, functions, for (_ <- goals) yield List())
+    functions : Seq[Seq[FunApp]]) : Instance[Term, Fun] = createProblem(domains, goals, functions, for (_ <- goals) yield List())
 }
 

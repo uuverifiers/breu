@@ -14,9 +14,9 @@ import scala.collection.mutable.ListBuffer
 // Implementing the Table Solver (as presented in [1])
 class TableSolver[Term, Fun](timeoutChecker : () => Unit, 
                               maxSolverRuntime : Long)  
-    extends BREUSolver[Term, Fun](timeoutChecker, maxSolverRuntime) {
+    extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime) {
 
-  // Stores one table for each BREUProblem
+  // Stores one table for each Problem
   var tables = Array() : Array[Option[Table]]
 
   // A subset of problems which were unsatifiable
@@ -65,7 +65,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
   //
   //  One iteration of the solving loop
   //
-  def solveIter (problem : BREUSimProblem) 
+  def solveIter (problem : SimProblem) 
       : (Option[Array[Int]], Map[Int, Seq[Int]]) = {
 
     val assignments = createAssignments(problem)
@@ -154,7 +154,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
 
   // Given a list of domains, goals, functions, see if there is a solution to
   // the simultaneous problem.
-  override def solveaux(problem : BREUSimProblem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
+  override def solveaux(problem : SimProblem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
     reset
 
     solveIter(problem) match {
@@ -174,7 +174,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
 
 
   // PRE: Call after solve returns UNSAT
-  def unsatCoreAux(problem : BREUSimProblem, timeout : Int) : Seq[Int] = {
+  def unsatCoreAux(problem : SimProblem, timeout : Int) : Seq[Int] = {
     lastUnsatCore
   }
 }

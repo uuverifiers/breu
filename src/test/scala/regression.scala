@@ -18,7 +18,7 @@ class Regression extends FunSpec {
   describe("SAT") {
     for (f <- satFiles) {
       it(f.getName()) {
-        val ret = BREUtester.test(f.toString)
+        val ret = Tester.test(f.toString)
         assert(ret == breu.Result.SAT)
       }
     }
@@ -30,7 +30,7 @@ class Regression extends FunSpec {
   describe("UNSAT") {
     for (f <- unsatFiles) {
       it(f.getName()) {
-        val ret = BREUtester.test(f.toString)
+        val ret = Tester.test(f.toString)
         assert(ret == breu.Result.UNSAT)
       }
     }

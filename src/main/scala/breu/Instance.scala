@@ -7,10 +7,10 @@ import java.io.File
 import scala.collection.mutable.{Map => MMap}
 
 
-class BREUInstance[Term, Fun](
+class Instance[Term, Fun](
   id : Int, 
-  solver : BREUSolver[Term, Fun],
-  val problem : BREUSimProblem,
+  solver : Solver[Term, Fun],
+  val problem : SimProblem,
   val termMap : Map[Term, Int],
   originalDomains : Map[Term, Set[Term]]) {
 
@@ -111,7 +111,7 @@ class BREUInstance[Term, Fun](
     core
   }
 
-  def checkPreviousSolution(prevInst : BREUInstance[Term, Fun]) :
+  def checkPreviousSolution(prevInst : Instance[Term, Fun]) :
       (Boolean, Option[Map[Int, Int]]) = {
     if (prevInst.model.isDefined) {
       var ss = true 
