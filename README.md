@@ -18,4 +18,4 @@ Coming soon...
 -Peter Backeman, Philipp Rümmer:
  Efficient Algorithms for Bounded Rigid E-unification. TABLEAUX 2015: 70-85
 
-[![Build Status](https://travis-ci.org/uuverifiers/uppsat.svg?branch=master)](https://travis-ci.org/uuverifiers/uppsat)
+[![Build Status](https://travis-ci.org/uuverifiers/breu.svg?branch=master)](https://travis-ci.org/uuverifiers/breu)
