@@ -71,11 +71,8 @@ abstract class Solver[Term, Fun](
   val maxSolverRuntime : Long) {
 
   var debug = false
-  type FunApp = (Fun, Seq[Term], Term)
-  type Goal = (Term, Term)
-
-  type IntFunApp = (Int, Seq[Int], Int)
-  type IntGoal = (Int, Int)
+  type TermEq = (Fun, Seq[Term], Term)
+  type TermGoal = (Term, Term)
 
   // Bit manipulation
   val alloc = new Allocator
@@ -341,7 +338,7 @@ abstract class Solver[Term, Fun](
   }
 
   def reorderProblems(terms : Seq[Seq[Int]], domains : Seq[Domains],
-    functions : Seq[Seq[(Int, Seq[Int], Int)]], goals : Seq[Seq[Seq[(Int, Int)]]]) : Seq[Int] = {
+    functions : Seq[Seq[Eq]], goals : Seq[Goal]) : Seq[Int] = {
     val count = goals.length
 
     // 
@@ -359,7 +356,7 @@ abstract class Solver[Term, Fun](
 
     val order  =
       (for (i <- 0 until count) yield
-        (i, goals(i).length)).sortBy(_._2).map(_._1).reverse
+        (i, goals(i).subGoals.length)).sortBy(_._2).map(_._1).reverse
 
     //
     // Order by function count (Increasing)
@@ -388,12 +385,12 @@ abstract class Solver[Term, Fun](
 
   def createDQ(terms : Seq[Int],
     domains : Domains,
-    functions : Seq[(Int, Seq[Int], Int)]) = {
+    functions : Seq[Eq]) = {
 
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val DQ = new Disequalities(size, functions.map(x => Eq(x._1, x._2, x._3)).toArray, timeoutChecker)
+    val DQ = new Disequalities(size, functions.toArray, timeoutChecker)
     for (t <- terms) {
       val domain = domains(t)
 
@@ -415,11 +412,11 @@ abstract class Solver[Term, Fun](
   def createBaseDQ(
     terms : Seq[Int],
     domains : Domains,
-    functions : Seq[(Int, Seq[Int], Int)]) = {
+    functions : Seq[Eq]) = {
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val baseDQ = new Disequalities(size, functions.map(x => Eq(x._1, x._2, x._3)).toArray, timeoutChecker)
+    val baseDQ = new Disequalities(size, functions.toArray, timeoutChecker)
     for (t <- terms) {
       val domain = domains(t)
 
@@ -438,8 +435,8 @@ abstract class Solver[Term, Fun](
   }
 
   private def extractTerms(domains : Map[Term, Set[Term]],
-    functions : Seq[FunApp],
-    goals : Seq[Seq[Goal]]) = {
+    functions : Seq[TermEq],
+    goals : Seq[Seq[(Term,Term)]]) = {
 
     val termSet = MSet() : MSet[Term]
     for ((_, d) <- domains)
@@ -459,22 +456,26 @@ abstract class Solver[Term, Fun](
   }
 
   private def intExtractTerms(domains : Domains,
-    functions : Seq[IntFunApp],
-    goals : Seq[Seq[IntGoal]]) : Set[Int] = {
+    functions : Seq[Eq],
+    goals : Goal) : Set[Int] = {
 
     val termSet = MSet() : MSet[Int]
-    for ((_, d) <- domains.domains)
-      for (t <- d)
-        termSet += t
-    for ((s,t) <- goals.flatten) {
-      termSet += s
-      termSet += t
-    }
-    for ((_, args, r) <- functions) {
-      for (t <- args)
-        termSet += t
-      termSet += r
-    }
+    // for ((_, d) <- domains.domains)
+    //   for (t <- d)
+    //     termSet += t
+    termSet ++= domains.terms
+    termSet ++= functions.map(_.terms).flatten
+    termSet ++= goals.terms
+
+    // for ((s,t) <- goals.flatten) {
+    //   termSet += s
+    //   termSet += t
+    // }
+    // for ((_, args, r) <- functions) {
+    //   for (t <- args)
+    //     termSet += t
+    //   termSet += r
+    // }
     
     termSet.toSet
   }
@@ -509,7 +510,7 @@ abstract class Solver[Term, Fun](
 
 
   private def createFunMapping(
-    functions : Seq[Seq[FunApp]]
+    functions : Seq[Seq[TermEq]]
   ) : Map[Fun, Int] = {
     var assigned = 0
     var funMap = Map() : Map[Fun, Int]
@@ -525,12 +526,14 @@ abstract class Solver[Term, Fun](
   // Create a problem from internal (Integer) representation
   def intCreateProblem(
     domains : Domains,
-    subProblems : Seq[(Seq[Seq[IntGoal]], Seq[IntFunApp])]) : SimProblem = {
+    subProblems : Seq[(Goal, Seq[Eq])]) : SimProblem = {
 
     val problemCount = subProblems.length
     val termSets = 
-      for (p <- 0 until problemCount) yield
-        intExtractTerms(domains, subProblems(p)._2, subProblems(p)._1)
+      for (p <- 0 until problemCount) yield {
+        val (goal, eqs) = subProblems(p)
+        intExtractTerms(domains, eqs, goal)
+      }
 
     val allTerms = (termSets.:\(Set() : Set[Int])(_ ++ _)).toList
     val bits = Util.binlog(allTerms.length)
@@ -541,9 +544,11 @@ abstract class Solver[Term, Fun](
       (for (p <- 0 until problemCount) yield {
         val (goals, functions) = subProblems(p)
         // Filter terms per table
-        def isUsed(term : Int, funs : Seq[(Int, Seq[Int], Int)],
-          goals : Seq[Seq[(Int, Int)]]) : Boolean = {
-          for ((_, args, s) <- funs) {
+        def isUsed(term : Int, funs : Seq[Eq],
+          goals : Goal) : Boolean = {
+          for (eq <- funs) {
+            val args = eq.args
+            val s = eq.res
             if (s == term)
               return true
             for (a <- args)
@@ -551,7 +556,7 @@ abstract class Solver[Term, Fun](
                 return true
           }
 
-          for (g <- goals)
+          for (g <- goals.subGoals)
             for ((s, t) <- g)
               if (s == term || t == term)
                 return true
@@ -591,7 +596,7 @@ abstract class Solver[Term, Fun](
         // val fd = newDomains
         val fg = goals
         (ff, ft, fd, fg)
-      }) : Seq[(Seq[(Int, Seq[Int], Int)], Seq[Int], Domains, Seq[Seq[IntGoal]])]
+      }) : Seq[(Seq[Eq], Seq[Int], Domains, Goal)]
 
     val filterTerms = for ((_, ft, _, _) <- ffs) yield ft
     val filterDomains = for ((_, _, fd, _) <- ffs) yield fd
@@ -618,7 +623,7 @@ abstract class Solver[Term, Fun](
     val reorderDomains = (for (i <- order) yield filterDomains(i))
     val reorderGoals = (for (i <- order) yield filterGoals(i))
     val reorderFunctions =
-      (for (i <- order) yield filterFunctions(i).map(x => new Eq(x._1, x._2, x._3)))
+      (for (i <- order) yield filterFunctions(i))
     val reorderDQ = (for (i <- order) yield DQ(i))
     val reorderBaseDQ = (for (i <- order) yield baseDQ(i))
 
@@ -626,7 +631,7 @@ abstract class Solver[Term, Fun](
     val problems =
       for (i <- 0 until problemCount) yield
         new SubProblem(reorderTerms(i), reorderDomains(i),
-          reorderFunctions(i), new breu.Goal(reorderGoals(i)),
+          reorderFunctions(i), reorderGoals(i),
           reorderDQ(i), reorderBaseDQ(i))
 
     new SimProblem(
@@ -640,9 +645,9 @@ abstract class Solver[Term, Fun](
 
   def createProblem(
     domains : Map[Term, Set[Term]],
-    goals : Seq[Seq[Seq[Goal]]],
-    functions : Seq[Seq[FunApp]],
-    negFunctions : Seq[Seq[FunApp]]) : Instance[Term, Fun] = {
+    goals : Seq[Seq[Seq[(Term, Term)]]],
+    functions : Seq[Seq[TermEq]],
+    negFunctions : Seq[Seq[TermEq]]) : Instance[Term, Fun] = {
 
     curId += 1
     val problemCount = goals.length
@@ -688,8 +693,8 @@ abstract class Solver[Term, Fun](
       for ((goals, funs, negFuns) <- triplets) yield {
 
 
-        val extraFunctions = ListBuffer() : ListBuffer[IntFunApp]
-        val extraGoals = ListBuffer() : ListBuffer[Seq[IntGoal]]
+        val extraFunctions = ListBuffer() : ListBuffer[Eq]
+        val extraSubGoals = ListBuffer() : ListBuffer[Seq[(Int, Int)]]
 
         val negFunGoals = for (nf <- negFuns) yield {
           // Convert f(args) != r to new FunEq f(args) = t and new Goal (t = r) where t is a fresh term
@@ -697,23 +702,25 @@ abstract class Solver[Term, Fun](
 
           val t = nextTerm
           nextTerm += 1
-          val newFun = (funMap(f), args.map(termToInt), t)
-          val newGoal = (t, termToInt(r))
+          val newFun = Eq(funMap(f), args.map(termToInt), t)
+          val newGoal = List((t, termToInt(r)))
 
           extraFunctions += newFun
-          extraGoals += List(newGoal)
+          extraSubGoals += newGoal
 
-          println("NegativeFunApp " + nf + " converted to " + newFun + " and " + newGoal)
+          // println("NegativeTermEq " + nf + " converted to " + newFun + " and " + newGoal)
         }
 
-        val newGoals = (for (eqs <- goals) yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t))) ++ extraGoals
-        val newFunctions = (for ((f, args, r) <- funs) yield (funMap(f), args.map(termToInt), termToInt(r))) ++ extraFunctions
+        val asd1 : Seq[Seq[(Int, Int)]] = (for (pairs <- goals) yield for ((s, t) <- pairs) yield (termToInt(s), termToInt(t)))
+        val asd2 : Seq[Seq[(Int, Int)]] = extraSubGoals
+        val newGoal  = Goal(asd1 ++ asd2)
+        val newFunctions = (for ((f, args, r) <- funs) yield Eq(funMap(f), args.map(termToInt), termToInt(r))) ++ extraFunctions
 
         // val newNegFunctions =
         //   for (negFuns <- negFunctions)    
         //   yield (for ((f, args, r) <- negFuns)
         //   yield (funMap(f), args.map(termToInt), termToInt(r)))
-        (newGoals, newFunctions)
+        (newGoal, newFunctions : Seq[Eq])
       }
 
     val problem = intCreateProblem(newDomains, subProblems)
@@ -724,7 +731,7 @@ abstract class Solver[Term, Fun](
 
   def createProblem(
     domains : Map[Term, Set[Term]],
-    goals : Seq[Seq[Seq[Goal]]],
-    functions : Seq[Seq[FunApp]]) : Instance[Term, Fun] = createProblem(domains, goals, functions, for (_ <- goals) yield List())
+    goals : Seq[Seq[Seq[(Term, Term)]]],
+    functions : Seq[Seq[TermEq]]) : Instance[Term, Fun] = createProblem(domains, goals, functions, for (_ <- goals) yield List())
 }
 

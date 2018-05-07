@@ -1,11 +1,17 @@
 package breu;
 
+
+
 case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
   override def toString = subGoals.mkString(" OR ")
+
+  val terms : Set[Int] = subGoals.flatten.map(x => List(x._1, x._2)).flatten.toSet
 }
 
 case class Eq(val fun : Int, val args : Seq[Int], val res : Int) {
   override def toString = fun + "(" + args.mkString(",") + ")=" + res
+
+  val terms : Set[Int] = args.toSet + res
 }
 
 case class Domains(val domains : Map[Int, Set[Int]]) {
@@ -13,6 +19,8 @@ case class Domains(val domains : Map[Int, Set[Int]]) {
   def apply(i : Int) = {
     domains.getOrElse(i, Set(i))
   }
+
+  val terms : Set[Int]  = (for ((_, d) <- domains) yield d).flatten.toSet
 }
 
 case class SubProblem(
