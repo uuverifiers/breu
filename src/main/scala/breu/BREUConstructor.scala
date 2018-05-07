@@ -14,7 +14,6 @@ class BREUConstructor[Term, Fun]() {
   val domains : ListBuffer[Domain] = ListBuffer()
   val functions : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
   val negatedFunctions : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
-  val globalFunctions : ListBuffer[FunApp] = ListBuffer()
   val goals : ListBuffer[ListBuffer[Goal]] = ListBuffer()
   var subProblems = 0
   var tableColumns = List() : List[Int]
@@ -31,14 +30,11 @@ class BREUConstructor[Term, Fun]() {
     goals += ListBuffer()
   }
 
-  def addGlobalFunction(f : FunApp) =
-    globalFunctions += f
+  def addFunction(sp : Int, f : FunApp) =
+    functions(sp) += f
 
-  def addFunction(f : FunApp) =
-    functions.last += f
-
-  def addGoal(g : Goal) =
-    goals.last += g
+  def addGoal(sp : Int, g : Goal) =
+    goals(sp) += g
 
   def print() = {
     println("BREU CONSTRUCTOR")
@@ -67,7 +63,7 @@ class BREUConstructor[Term, Fun]() {
     val prob = solver.createProblem(
       domains.toMap,
       goals.toList,
-      functions.toList.map(_ ++ globalFunctions.toList),
+      functions.toList,
       negatedFunctions.toList
     )
 
