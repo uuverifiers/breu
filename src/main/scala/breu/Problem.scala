@@ -5,11 +5,7 @@ case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
   override def toString = subGoals.mkString(" OR ")
 }
 
-case class Eq(val eq : (Int, Seq[Int], Int)) {
-  val fun = eq._1
-  val args = eq._2
-  val res = eq._3
-
+case class Eq(val fun : Int, val args : Seq[Int], val res : Int) {
   override def toString = fun + "(" + args.mkString(",") + ")=" + res
 }
 

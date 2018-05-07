@@ -78,7 +78,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
     def addTable(index : Int) = {
       tmpTables(index) = Some(new Table(problem.bits, alloc, gt, solver,
         problem(index).terms, problem(index).domains,
-        problem(index).funEqs.map(_.eq), ZEROBIT, ONEBIT, problem(index).DQ,
+        problem(index).funEqs, ZEROBIT, ONEBIT, problem(index).DQ,
         problem(index).goal.subGoals))
 
       (tmpTables(index).get).addInitialColumn(assignments)
@@ -183,7 +183,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
       // TODO: Make table take a problem instead
 class Table(val bits : Int, alloc : Allocator,
   gt : GateTranslator, solver : ISolver, val terms : Seq[Int],
-  domains : Map[Int, Set[Int]], functions : Seq[(Int, Seq[Int], Int)],
+  domains : Map[Int, Set[Int]], functions : Seq[Eq],
   ZEROBIT : Int, ONEBIT : Int, DQ : Disequalities, 
   val goal : Seq[Seq[(Int, Int)]]) {
 
@@ -383,17 +383,19 @@ class Table(val bits : Int, alloc : Allocator,
 
 
     val V =
-      for ((f_i, args_i, s_i) <- functions;
-        (f_j, args_j, s_j) <- functions;
-        if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
+      // for ((f_i, args_i, s_i) <- functions;
+      //   (f_j, args_j, s_j) <- functions;
+      for (eq1 <- functions; eq2 <- functions;
+        if (eq1.fun == eq2.fun) && (eq1.res == eq2.res) && unifiable(eq1.args, eq2.args)) yield {
+        // if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
         val argBits =
-          (for (i <- 0 until args_i.length) yield {
-            val t1 = args_i(i) min args_j(i)
-            val t2 = args_i(i) max args_j(i)
+          (for (i <- 0 until eq1.args.length) yield {
+            val t1 = eq1.args(i) min eq2.args(i)
+            val t2 = eq1.args(i) max eq2.args(i)
             if (eqBits(tTI(t1))(tTI(t2)) == -1)
               eqBits(tTI(t1))(tTI(t2)) =
-                termEqTerm((currentColumn-1, args_i(i)),
-                  (currentColumn-1,args_j(i)))
+                termEqTerm((currentColumn-1, eq1.args(i)),
+                  (currentColumn-1,eq2.args(i)))
 
             eqBits(tTI(t1))(tTI(t2))
           }).toArray
@@ -410,13 +412,13 @@ class Table(val bits : Int, alloc : Allocator,
           }
 
         // gtBit <=> C_p[s_i] > C_p[s_j]
-        val gtBit = termGtTerm((currentColumn-1, s_i), (currentColumn-1, s_j))
+        val gtBit = termGtTerm((currentColumn-1, eq1.res), (currentColumn-1, eq2.res))
 
         // vBit <=> args_i = args_j ^ s_i > s_j
         val vBit = alloc.alloc(1)
         gt.and(vBit, argBit, gtBit)
 
-        (vBit, (args_i, s_i), (args_j, s_j))
+        (vBit, (eq1.args, eq1.res), (eq2.args, eq2.res))
       }
 
 
@@ -571,18 +573,20 @@ class Table(val bits : Int, alloc : Allocator,
     val eqBits = Array.tabulate(terms.length, terms.length)( (x, y) => -1)
 
     val V =
-      for ((f_i, args_i, s_i) <- functions;
-        (f_j, args_j, s_j) <- functions;
-        if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
+      // for ((f_i, args_i, s_i) <- functions;
+      //   (f_j, args_j, s_j) <- functions;
+      for (eq1 <- functions; eq2 <-functions;
+        // if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
+        if (eq1.fun == eq2.fun) && (eq1.res != eq2.res) && unifiable(eq1.args, eq2.args)) yield {
 
         val argBits =
-          (for (i <- 0 until args_i.length) yield {
-            val t1 = args_i(i) min args_j(i)
-            val t2 = args_i(i) max args_j(i)
+          (for (i <- 0 until eq1.args.length) yield {
+            val t1 = eq1.args(i) min eq2.args(i)
+            val t2 = eq1.args(i) max eq2.args(i)
             if (eqBits(tTI(t1))(tTI(t2)) == -1)
               eqBits(tTI(t1))(tTI(t2)) =
-                termEqTerm((currentColumn, args_i(i)),
-                  (currentColumn,args_j(i)))
+                termEqTerm((currentColumn, eq1.args(i)),
+                  (currentColumn,eq2.args(i)))
             eqBits(tTI(t1))(tTI(t2))
           }).toArray
 
@@ -600,7 +604,7 @@ class Table(val bits : Int, alloc : Allocator,
         gt.and(argBit, new VecInt(argBits))
 
         // gtBit <=> C_p[s_i] > C_p[s_j]
-        val gtBit = termGtTerm((currentColumn, s_i), (currentColumn, s_j))
+        val gtBit = termGtTerm((currentColumn, eq1.res), (currentColumn, eq2.res))
 
         // vBit <=> args_i = args_j ^ s_i > s_j
         val vBit = alloc.alloc(1)

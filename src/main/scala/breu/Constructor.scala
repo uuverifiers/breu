@@ -6,6 +6,7 @@ import scala.collection.mutable.ListBuffer
  * Helper class for constructing BREU-problems
  * 
  */
+
 class Constructor[Term, Fun]() {
   type Domain = (Term, Set[Term])
   type FunApp = (Fun, Seq[Term], Term)
@@ -14,6 +15,7 @@ class Constructor[Term, Fun]() {
   val domains : ListBuffer[Domain] = ListBuffer()
   val functions : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
   val negatedFunctions : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
+
   val goals : ListBuffer[ListBuffer[Goal]] = ListBuffer()
   var subProblems = 0
   var tableColumns = List() : List[Int]
@@ -68,8 +70,6 @@ class Constructor[Term, Fun]() {
     model = prob.model
     res
   }
-
-
 
   def solveTable(debug : Boolean = false) = {
     val solver = new breu.TableSolver[Term,Fun](checkTO, 60000)

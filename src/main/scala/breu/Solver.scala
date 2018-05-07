@@ -393,7 +393,7 @@ abstract class Solver[Term, Fun](
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val DQ = new Disequalities(size, functions.map(x => Eq(x)).toArray, timeoutChecker)
+    val DQ = new Disequalities(size, functions.map(x => Eq(x._1, x._2, x._3)).toArray, timeoutChecker)
     for (t <- terms) {
       val domain = domains.getOrElse(t, List(t))
 
@@ -419,7 +419,7 @@ abstract class Solver[Term, Fun](
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val baseDQ = new Disequalities(size, functions.map(x => Eq(x)).toArray, timeoutChecker)
+    val baseDQ = new Disequalities(size, functions.map(x => Eq(x._1, x._2, x._3)).toArray, timeoutChecker)
     for (t <- terms) {
       val domain = domains.getOrElse(t, List(t))
 
@@ -618,7 +618,7 @@ abstract class Solver[Term, Fun](
     val reorderDomains = (for (i <- order) yield filterDomains(i))
     val reorderGoals = (for (i <- order) yield filterGoals(i))
     val reorderFunctions =
-      (for (i <- order) yield filterFunctions(i).map(x => new Eq(x)))
+      (for (i <- order) yield filterFunctions(i).map(x => new Eq(x._1, x._2, x._3)))
     val reorderDQ = (for (i <- order) yield DQ(i))
     val reorderBaseDQ = (for (i <- order) yield baseDQ(i))
 

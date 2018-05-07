@@ -33,7 +33,7 @@ class Disequalities(
   }
 
   // TODO: Fix!
-  var funEqs = funEqsAux.map(_.eq)
+  var funEqs = funEqsAux
 
   // Stores the actual disequalities 
   // TODO: change to (size*size-1)/2
@@ -59,7 +59,7 @@ class Disequalities(
   //   diseqCount += 1
 
   for (f <- 0 until funEqs.length) {
-    val (fun, args, res) = funEqs(f)
+    val (fun, args, res) = (funEqs(f).fun, funEqs(f).args, funEqs(f).res)
 
     // Argument map
     for (i <- 0 until args.length) {
@@ -265,8 +265,8 @@ class Disequalities(
         (fun2, i2, eq2) <- funArgs.getOrElse(t, List()); 
         if (fun1 == fun2 && i1 == i2 && eq1 != eq2)) yield {
 
-        val (_, args_i, r_i) = funEqs(eq1)
-        val (_, args_j, r_j) = funEqs(eq2)
+        val (args_i, r_i) = (funEqs(eq1).args, funEqs(eq1).res)
+        val (args_j, r_j) = (funEqs(eq2).args, funEqs(eq2).res)
 
         if (check(args_i zip args_j)) {
           addTodo((r_i, r_j), true)
@@ -278,11 +278,11 @@ class Disequalities(
       // Find all s, s.t. s = lhs and add s = rhs
       def transitivity(lhs : Int, rhs : Int) = Timer.measure("transitivity") {
         for ((fun1, eq1) <- funRes getOrElse (lhs, List())) {
-          val (_, args_i, _) = funEqs(eq1)
+          val args_i = funEqs(eq1).args
 
           // Find all matching functions
           for (eq2 <- funFuns getOrElse (fun1, List())) {
-            val (_, args_j, s) = funEqs(eq2)
+            val (args_j, s) = (funEqs(eq2).args, funEqs(eq2).res)
 
             // s = lhs => s = rhs
             // Unify s with all terms that are Funified with rhs
@@ -456,7 +456,7 @@ object Util {
     assignments : Seq[(Int, Int)] = List()) 
   : UnionFind[Int]= {
 
-    val functions = equations.map(_.eq)
+    val functions = equations
     val uf = new UnionFind[Int]
 
     for (t <- terms)
@@ -471,16 +471,18 @@ object Util {
     while (changed) {
       changed = false
       // All pairs of functions, if args_i = args_j, merge s_i with s_j
-      for ((f_i, args_i, s_i) <- functions;
-        (f_j, args_j, s_j) <- functions;
-        if (f_i == f_j && uf(s_i) != uf(s_j))) {
+      // for ((f_i, args_i, s_i) <- functions;
+      //   (f_j, args_j, s_j) <- functions;
+      for (eq1 <- functions; eq2 <- functions;
+        // if (f_i == f_j && uf(s_i) != uf(s_j))) {
+        if (eq1.fun == eq2.fun && uf(eq1.res) != uf(eq2.res))) {
         var argsEquals = true
-        for (i <- 0 until args_i.length) {
-          if (uf(args_i(i)) != uf(args_j(i)))
+        for (i <- 0 until eq1.args.length) {
+          if (uf(eq1.args(i)) != uf(eq2.args(i)))
             argsEquals = false
         }
         if (argsEquals) {
-          uf.union(s_i, s_j)
+          uf.union(eq1.res, eq2.res)
           changed = true
         }
       }
