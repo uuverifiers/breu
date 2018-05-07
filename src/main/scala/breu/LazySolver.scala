@@ -29,7 +29,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   // (3) Generate blocking clause B that excludes A
   // (4) Add B to the constraints and generate new assignment A'
   // (5) Let A = A' and go to (2)
-  override def solveaux(problem : SimProblem)
+  override def solveaux(problem : Problem)
       : (breu.Result.Result, Option[Map[Int, Int]]) =
     Timer.measure("LazySolver.solveaux") {
       reset
@@ -150,7 +150,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   override def getStat(result : breu.Result.Result) = 
     "LAZY>RESULT:" + result + ",BLOCKINGCLAUSES:" + bcCount
 
-  def unsatCoreAux(problem : SimProblem, timeout : Int) = lastUnsatCore
+  def unsatCoreAux(problem : Problem, timeout : Int) = lastUnsatCore
 
   def unitBlockingClauses = unitClauses
 

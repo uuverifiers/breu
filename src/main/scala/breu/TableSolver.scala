@@ -65,7 +65,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
   //
   //  One iteration of the solving loop
   //
-  def solveIter (problem : SimProblem) 
+  def solveIter (problem : Problem) 
       : (Option[Array[Int]], Map[Int, Seq[Int]]) = {
 
     val assignments = createAssignments(problem)
@@ -154,7 +154,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
 
   // Given a list of domains, goals, functions, see if there is a solution to
   // the simultaneous problem.
-  override def solveaux(problem : SimProblem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
+  override def solveaux(problem : Problem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
     reset
 
     solveIter(problem) match {
@@ -174,7 +174,7 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
 
 
   // PRE: Call after solve returns UNSAT
-  def unsatCoreAux(problem : SimProblem, timeout : Int) : Seq[Int] = {
+  def unsatCoreAux(problem : Problem, timeout : Int) : Seq[Int] = {
     lastUnsatCore
   }
 }

@@ -43,7 +43,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
     (result, ((t1 - t0)/1000000).toInt)
   }
 
-  def debugPrint(problem : SimProblem) = {
+  def debugPrint(problem : Problem) = {
     println("---NEW PROBLEM---")
     println("ID:" + scala.util.Random.nextInt(2147483647))
     println("SIZE:" + problem.size)
@@ -56,7 +56,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
     println("---END PROBLEM---")
   }
 
-  override def solveaux(problem : SimProblem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
+  override def solveaux(problem : Problem) : (breu.Result.Result, Option[Map[Int, Int]]) = {
     reset
 
     println("Solving")
@@ -101,7 +101,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
     }
   }
 
-  def unsatCoreAux(problem : SimProblem, timeout : Int) = {
+  def unsatCoreAux(problem : Problem, timeout : Int) = {
     lsolver.unsatCore(problem, timeout)
   }
 

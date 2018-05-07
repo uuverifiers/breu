@@ -67,7 +67,7 @@ case class SubProblem(
   }
 }
 
-case class SimProblem(
+case class Problem(
   val terms : Seq[Int],
   val domains : Domains,
   val bits : Int,

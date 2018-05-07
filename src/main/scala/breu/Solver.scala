@@ -97,7 +97,7 @@ abstract class Solver[Term, Fun](
 
   def getStat(result : breu.Result.Result) : String
 
-  def solve(problem : SimProblem, asserted : Boolean) = 
+  def solve(problem : Problem, asserted : Boolean) = 
   Timer.measure("Solver.solve") {
 
     val result = 
@@ -136,7 +136,7 @@ abstract class Solver[Term, Fun](
     }
   }
 
-  def unsatCore(problem : SimProblem, timeout : Int) = {
+  def unsatCore(problem : Problem, timeout : Int) = {
     val core =
       unsatCoreAux(problem, timeout)
     assert(!core.isEmpty)
@@ -144,10 +144,10 @@ abstract class Solver[Term, Fun](
   }
 
   // Asbtract functions
-  protected def solveaux(problem : SimProblem) : 
+  protected def solveaux(problem : Problem) : 
       (Result.Result, Option[Map[Int, Int]])
 
-  def unsatCoreAux(problem : SimProblem, timeout : Int) : Seq[Int]
+  def unsatCoreAux(problem : Problem, timeout : Int) : Seq[Int]
 
   def reset = {
     solver.reset()
@@ -305,7 +305,7 @@ abstract class Solver[Term, Fun](
     eqBit
   }
 
-  def createAssignments(problem : SimProblem) : Map[Int, Seq[Int]] = {
+  def createAssignments(problem : Problem) : Map[Int, Seq[Int]] = {
     // Connects each term with its list of bits
     // (e.g. assignment(a) = List(3,4,5))
     val terms = problem.terms
@@ -527,7 +527,7 @@ abstract class Solver[Term, Fun](
   // Create a problem from internal (Integer) representation
   def intCreateProblem(
     domains : Domains,
-    subProblems : Seq[(Goal, Seq[Eq])]) : SimProblem = {
+    subProblems : Seq[(Goal, Seq[Eq])]) : Problem = {
 
     val problemCount = subProblems.length
     val termSets = 
@@ -635,7 +635,7 @@ abstract class Solver[Term, Fun](
           reorderFunctions(i), reorderGoals(i),
           reorderDQ(i), reorderBaseDQ(i))
 
-    new SimProblem(
+    new Problem(
       allTerms,
       domains,
       bits,
@@ -716,8 +716,7 @@ abstract class Solver[Term, Fun](
 
     val problem = intCreateProblem(newDomains, subProblems)
 
-    new Instance[Term, Fun](curId, this, problem, termToInt.toMap,
-                               domains)
+    new Instance[Term, Fun](curId, this, problem, termToInt.toMap, domains)
   }
 
   def createProblem(

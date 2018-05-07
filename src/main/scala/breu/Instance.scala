@@ -10,7 +10,7 @@ import scala.collection.mutable.{Map => MMap}
 class Instance[Term, Fun](
   id : Int, 
   solver : Solver[Term, Fun],
-  val problem : SimProblem,
+  val problem : Problem,
   val termMap : Map[Term, Int],
   originalDomains : Map[Term, Set[Term]]) {
 
