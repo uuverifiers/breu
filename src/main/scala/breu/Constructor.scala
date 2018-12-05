@@ -7,7 +7,7 @@ import scala.collection.mutable.ListBuffer
  * 
  */
 
-class Constructor[Term, Fun]() {
+class Constructor[Term, Fun](debug : Boolean = false) {
   type Domain = (Term, Set[Term])
   type FunApp = (Fun, Seq[Term], Term)
   type Goal = Seq[(Term, Term)]
@@ -15,8 +15,9 @@ class Constructor[Term, Fun]() {
   val domains : ListBuffer[Domain] = ListBuffer()
   val eqs : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
   val negatedEqs : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
-
   val goals : ListBuffer[ListBuffer[Goal]] = ListBuffer()
+
+
   var subProblems = 0
   var tableColumns = List() : List[Int]
   var unitClauses = List() : List[(Int, Int)]
@@ -71,7 +72,7 @@ class Constructor[Term, Fun]() {
     res
   }
 
-  def solveTable(debug : Boolean = false) = {
+  def solveTable() = {
     val solver = new breu.TableSolver[Term,Fun](checkTO, 60000)
     if (debug)
       solver.debug = true
@@ -88,7 +89,7 @@ class Constructor[Term, Fun]() {
     ret
   }
 
-  def solveLazy(debug : Boolean = false) = {
+  def solveLazy() = {
     val solver = new breu.LazySolver[Term,Fun](checkTO, 60000)
     if (debug)
       solver.debug = true
