@@ -5,6 +5,7 @@ import scala.collection.mutable.ListBuffer
 /*
  * Helper class for constructing BREU-problems
  * 
+ * New restriction: Can only add sub-problems, never go back and edit earlier ones
  */
 
 class Constructor[Term, Fun](debug : Boolean = false) {
@@ -14,7 +15,6 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
   val domains : ListBuffer[Domain] = ListBuffer()
   val eqs : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
-  val negatedEqs : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
   val goals : ListBuffer[ListBuffer[Goal]] = ListBuffer()
 
 
@@ -29,23 +29,22 @@ class Constructor[Term, Fun](debug : Boolean = false) {
   def newSubproblem() = {
     subProblems += 1
     eqs += ListBuffer()
-    negatedEqs += ListBuffer()
     goals += ListBuffer()
   }
 
-  def addFunction(sp : Int, f : FunApp) =
-    eqs(sp) += f
+  def addFunction(f : FunApp) =
+    eqs(subProblems-1) += f
 
-  def addGoal(sp : Int, g : Goal) =
-    goals(sp) += g
+  def addGoal(g : Goal) =
+    goals(subProblems-1) += g
 
-  def print() : String = {
+  override def toString() : String = {
     " CONSTRUCTOR\n" +
     "Subproblems: " + subProblems + "\n" +
     "Domains:\n" +
     (for ((t, d) <- domains) yield {
       "\t" + t + " -> " + d.mkString(",")
-    }).mkString("\n") +
+    }).mkString("\n") + "\n" + 
     (for ((fs, gs) <- eqs zip goals) yield {
       "< --- SUBPROBLEM --- >\n" +
       "Eqs:\n" +
@@ -63,7 +62,6 @@ class Constructor[Term, Fun](debug : Boolean = false) {
       domains.toMap,
       goals.toList,
       eqs.toList,
-      negatedEqs.toList
     )
 
     // Solve Problem

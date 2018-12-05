@@ -18,13 +18,10 @@ object BREUtest {
     // val gPattern = "((.*)=\\?(.*)\\|?)+".r
     val gPattern = "(.*=\\?.*\\|?)+".r    
 
-    var curSubproblem = -1
-
     for (l <- input) {
       l.trim() match {
         case dPattern(t,d) if section == "domains" => cons.addDomain(t, d.split(",").toSet)
-        case fPattern(f,ts,t) if section == "problem" => cons.addFunction(curSubproblem, (f, ts.split(","), t))
-          // case gPattern(lhs,rhs) if section == "problem" => cons.addGoal(List((lhs, rhs)))
+        case fPattern(f,ts,t) if section == "problem" => cons.addFunction((f, ts.split(","), t))
         case gPattern(sgoals) => {
           println("GPATTERN: " + sgoals)
           val sgPattern = "(.*)=\\?(.*)".r
@@ -34,13 +31,12 @@ object BREUtest {
                 case sgPattern(lhs, rhs) => (lhs.toString, rhs.toString)
               }
             }
-          cons.addGoal(curSubproblem, sgs.toList)
+          cons.addGoal(sgs.toList)
         }
         case "DOMAINS" => section = "domains"
         case "PROBLEM" => {
           section = "problem"
           cons.newSubproblem()
-          curSubproblem += 1
         }
       }
     }

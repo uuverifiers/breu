@@ -11,7 +11,6 @@ object Tester {
     val input = io.Source.fromFile(file).getLines.toList
 
     var section = ""
-    var curProblem = -1
 
     val dPattern = "(.*)=(.*)".r
     val fPattern = "(.*)\\((.*)\\)=(.*)".r
@@ -20,7 +19,7 @@ object Tester {
     for (l <- input) {
       l.trim() match {
         case dPattern(t,d) if section == "domains" => cons.addDomain(t, d.split(",").toSet)
-        case fPattern(f,ts,t) if section == "problem" => cons.addFunction(curProblem, (f, ts.split(","), t))
+        case fPattern(f,ts,t) if section == "problem" => cons.addFunction((f, ts.split(","), t))
         case gPattern(sgoals) => {
           val sgPattern = "(.*)=\\?(.*)".r
           val sgs = 
@@ -29,13 +28,12 @@ object Tester {
                 case sgPattern(lhs, rhs) => (lhs.toString, rhs.toString)
               }
             }
-          cons.addGoal(curProblem, sgs.toList)
+          cons.addGoal(sgs.toList)
         }
         case "DOMAINS" => section = "domains"
         case "PROBLEM" => {
           section = "problem"
           cons.newSubproblem()
-          curProblem += 1          
         }
       }
     }
