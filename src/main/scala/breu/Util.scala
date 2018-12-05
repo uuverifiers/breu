@@ -67,6 +67,7 @@ class Disequalities(
         eqArgs.get(args(i)).get += ((fun, i, f))
       else
         eqArgs += (args(i) -> ListBuffer((fun, i, f)))
+      () // This is needed for bug
     }
 
     // Result map
@@ -80,6 +81,7 @@ class Disequalities(
       eqFuns.get(fun).get += f
     else
       eqFuns += (fun -> ListBuffer(f))
+    () // This is needed for bug
   }
 
   // TODO: diseqCount
