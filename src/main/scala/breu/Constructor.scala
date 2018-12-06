@@ -28,7 +28,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
   // Auxilliary information from solvers
   var tableColumns = List() : List[Int]
-  var blockingClauses = None : Option[List[List[(Term, Term)]]]
+  var blockingClauses = List() : List[List[(Term, Term)]]
   // var unitClauses = List() : List[(Int, Int)]
   var model = None : Option[Map[Term,Term]]
 
@@ -116,11 +116,11 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
     val tm = termMap()
     blockingClauses = 
-      Some((for (bc <- solver.blockingClauses) yield {
+      (for (bc <- solver.blockingClauses) yield {
         (for ((s, t) <- bc) yield {
           (tm(s), tm(t))
         }).toList
-      }).toList)
+      }).toList
 
     ret
   }
@@ -131,5 +131,4 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     else
       (instance.get.termMap).map(_.swap)
   }
-
 }

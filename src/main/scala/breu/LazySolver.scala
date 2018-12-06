@@ -111,6 +111,10 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
       var problemOrder = List.tabulate(problem.size)(x => x)
 
 
+      // Add given blocking clauses
+      for (bc <- problem.blockingClauses)
+        println("Lazy>BC: " + bc)
+
       var iterations = 0
       // (1) Generate a random assignments A
       while (!infeasible && !allSat && solver.isSatisfiable()) {

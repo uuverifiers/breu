@@ -8,9 +8,6 @@ import scala.io.Source
 class Incremental extends FunSpec {
 
   describe("Inc. 1") {
-
-    // X = a v X = b v X = c
-    // Y = a v Y = b v Y = c
     val con = new Constructor[String, String](true)
     val X = "X"
     val Y = "Y"
@@ -24,7 +21,7 @@ class Incremental extends FunSpec {
     con.addDomain(X, Set(X, c, b, a))
     con.addDomain(Y, Set(Y, X, c, b, a))    
 
-    it("Step 1 - SAT") {
+    it("No blocking clauses") {
       // println("<< SP 1 >>")
       val sp1 = con.newSubproblem()
       con.addGoal(List((X, a)))
@@ -33,9 +30,9 @@ class Incremental extends FunSpec {
 
       var res = con.solveLazy()
       assert(res == Result.SAT)
-      // println("RES: " + res)
-      // println("BC: " + con.getBlockingClauses())
-      // println("MODEL: " + con.getModel())
+      println("RES: " + res)
+      println("BC: " + con.blockingClauses)
+      println("MODEL: " + con.model)
 
       // println("<< SP 2 >>")      
       val sp2 = con.newSubproblem()

@@ -50,7 +50,7 @@ object BREUtest {
     println("Time: " + runTime/1000000 + " ms")
     if (res == breu.Result.SAT) {
       println("BlockingClauses: ")
-      for (bc <- cons.blockingClauses.get)
+      for (bc <- cons.blockingClauses)
         println("\t" + bc)
     }
   }
