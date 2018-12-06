@@ -56,7 +56,6 @@ class Stats {
   }
 }
 
-
 /*
  * An abstract BREUSolver
  * 

@@ -90,10 +90,6 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
             unitClauses += ((s,t))
           }
 
-          if (debug) 
-            println("finalDQ: " + finalDQ.mkString(", "))
-
-
           try {
             savedBlockingClauses += finalDQ.toList            
             solver.addClause(new VecInt(blockingClause))
