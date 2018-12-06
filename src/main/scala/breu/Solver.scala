@@ -493,7 +493,8 @@ abstract class Solver[Term, Fun](
   // Create a problem from internal (Integer) representation
   def intCreateProblem(
     domains : Domains,
-    subProblems : Seq[(Goal, Seq[Eq])]) : Problem = {
+    subProblems : Seq[(Goal, Seq[Eq])],
+    intBlockingClauses : Seq[Seq[(Int, Int)]]) : Problem = {
 
     val problemCount = subProblems.length
     val allTerms = (domains.terms ++ subProblems.map{
@@ -580,7 +581,8 @@ abstract class Solver[Term, Fun](
       domains,
       bits,
       order,
-      problems)
+      problems,
+      intBlockingClauses)
   }
 
 
@@ -588,11 +590,11 @@ abstract class Solver[Term, Fun](
     domains : TermDomains,
     goals : Seq[TermGoal],
     eqs : Seq[Seq[TermEq]],
-    negEqs : Seq[Seq[TermEq]]) : Instance[Term, Fun] = {
+    blockingClauses : Seq[Seq[(Term, Term)]]) : Instance[Term, Fun] = {
 
     curId += 1
     val problemCount = goals.length
-    val triplets = for (i <- 0 until problemCount) yield { (goals(i), eqs(i), negEqs(i)) }
+    val pairs = for (i <- 0 until problemCount) yield { (goals(i), eqs(i)) }
 
     //
     // Convert to Int representation
@@ -601,7 +603,7 @@ abstract class Solver[Term, Fun](
     // TODO: Maybe check that terms in eqs and goals actually have domains?
     val termSets = 
       for (p <- 0 until problemCount) yield
-        extractTerms(domains, eqs(p) ++ negEqs(p), goals(p))
+        extractTerms(domains, eqs(p), goals(p))
 
     val allTerms = (termSets.:\(Set() : Set[Term])(_ ++ _)).toList
     val terms = for (p <- 0 until problemCount) yield allTerms
@@ -609,7 +611,7 @@ abstract class Solver[Term, Fun](
 
 
     val (termToInt, intToTerm) = createTermMapping(allTerms, domains)
-    val funMap = createFunMapping(eqs ++ negEqs)
+    val funMap = createFunMapping(eqs)
     val intAllTerms = allTerms.map(termToInt)
 
     // TODO: Maybe add option for this?: Each term is added to its own domain
@@ -624,29 +626,17 @@ abstract class Solver[Term, Fun](
     // 
     // Convert each subproblem
     // + to integer representation
-    // + change NegFunEquations to goals
 
     // Conversion might introduce new terms, nextTerm shows next available term
     // Increasing by one allocates one new term (which is added to domain, etc.)
     var nextTerm = if (intAllTerms.length > 0) intAllTerms.max + 1 else 0
 
     val subProblems = 
-      for ((goals, funs, negFuns) <- triplets) yield {
+      for ((goals, funs) <- pairs) yield {
 
 
         val extraEqs = ListBuffer() : ListBuffer[Eq]
         val extraSubGoals = ListBuffer() : ListBuffer[Seq[(Int, Int)]]
-
-        val negFunGoals = for (nf <- negFuns) yield {
-          // Convert f(args) != r to new FunEq f(args) = t and new Goal (t = r) where t is a fresh term
-          val (f, args, r) = nf
-
-          val t = nextTerm
-          nextTerm += 1
-
-          extraEqs += Eq(funMap(f), args.map(termToInt), t)
-          extraSubGoals += List((t, termToInt(r)))
-        }
 
         val newGoal  = Goal((for (pairs <- goals) yield for ((s, t) <- pairs) yield (termToInt(s), termToInt(t))) ++ extraSubGoals)
         val newEqs = (for ((f, args, r) <- funs) yield Eq(funMap(f), args.map(termToInt), termToInt(r))) ++ extraEqs
@@ -654,7 +644,14 @@ abstract class Solver[Term, Fun](
         (newGoal, newEqs : Seq[Eq])
       }
 
-    val problem = intCreateProblem(newDomains, subProblems)
+    val intBlockingClauses =
+      (for (bc <- blockingClauses) yield {
+        for ((t1,t2) <- bc) yield {
+          (termToInt(t1), termToInt(t2))
+        }
+      })
+
+    val problem = intCreateProblem(newDomains, subProblems, intBlockingClauses)
 
     new Instance[Term, Fun](curId, this, problem, termToInt.toMap, domains)
   }
@@ -662,6 +659,6 @@ abstract class Solver[Term, Fun](
   def createProblem(
     domains : TermDomains,
     goals : Seq[TermGoal],
-    eqs : Seq[Seq[TermEq]]) : Instance[Term, Fun] = createProblem(domains, goals, eqs, for (_ <- goals) yield List())
+    eqs : Seq[Seq[TermEq]]) : Instance[Term, Fun] = createProblem(domains, goals, eqs, List())
 }
 
