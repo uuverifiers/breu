@@ -64,9 +64,9 @@ class Stats {
  */
 abstract class Solver[Term, Fun](
   val timeoutChecker : () => Unit,
-  val maxSolverRuntime : Long) {
+  val maxSolverRuntime : Long,
+  debug : Boolean) {
 
-  var debug = false
   type TermDomains = Map[Term, Set[Term]]
   type TermEq = (Fun, Seq[Term], Term)
   type TermGoal = Seq[Seq[(Term, Term)]]
@@ -90,6 +90,14 @@ abstract class Solver[Term, Fun](
   val savedBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]  
 
   def getStat(result : breu.Result.Result) : String
+
+  def dprint(str : String) =
+    if (debug)
+      print(str)
+
+  def dprintln(str : String) =
+    if (debug)
+      println(str)  
 
   def solve(problem : Problem, asserted : Boolean) = 
   Timer.measure("Solver.solve") {

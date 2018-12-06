@@ -12,9 +12,11 @@ import scala.collection.mutable.ListBuffer
 
 
 // Implementing the Table Solver (as presented in [1])
-class TableSolver[Term, Fun](timeoutChecker : () => Unit, 
-                              maxSolverRuntime : Long)  
-    extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime) {
+class TableSolver[Term, Fun](
+  timeoutChecker : () => Unit,
+  maxSolverRuntime : Long,
+  debug : Boolean = false
+) extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime, debug) {
 
   // Stores one table for each Problem
   var tables = Array() : Array[Option[Table]]

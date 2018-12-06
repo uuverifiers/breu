@@ -93,9 +93,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
   }
 
   def solveTable() = {
-    val solver = new breu.TableSolver[Term,Fun](checkTO, 60000)
-    if (debug)
-      solver.debug = true
+    val solver = new breu.TableSolver[Term,Fun](checkTO, 60000, debug)
     val ret = solve(solver, List())
     if (debug) {
       tableColumns = 
@@ -110,9 +108,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
   }
 
   def solveLazy(blockingClauses_ : List[List[(Term, Term)]] = List()) = {
-    val solver = new breu.LazySolver[Term,Fun](checkTO, 60000)
-    if (debug)
-      solver.debug = true
+    val solver = new breu.LazySolver[Term,Fun](checkTO, 60000, debug)
     val ret = solve(solver, blockingClauses_)
 
     val tm = termMap()

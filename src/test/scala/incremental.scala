@@ -14,7 +14,7 @@ class Incremental extends FunSpec {
   val c = "c"
 
   def baseConstructor() = {
-    val con = new Constructor[String, String](true)
+    val con = new Constructor[String, String]()
     con.addDomain(a, Set(a))
     con.addDomain(b, Set(b))
     con.addDomain(c, Set(c))        
@@ -23,13 +23,12 @@ class Incremental extends FunSpec {
     con
   }
 
-  describe("Inc. 1") {
+  describe("Incremental") {
 
 
     it("No blocking clauses") {
 
       val con = baseConstructor()
-      println("No blocking clauses")
       val sp1 = con.newSubproblem()
       con.addGoal(List((X, a)))
       con.addGoal(List((X, b)))
@@ -52,7 +51,6 @@ class Incremental extends FunSpec {
     }
 
     it("With blocking clauses") {
-      println("With blocking clauses")
       val con = baseConstructor()      
       val sp1 = con.newSubproblem()
       con.addGoal(List((X, a)))

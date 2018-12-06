@@ -9,9 +9,11 @@ import org.sat4j.core.VecInt
 import scala.collection.mutable.{Set => MSet, ListBuffer}
 
 
-class LazySolver[Term, Fun](timeoutChecker : () => Unit, 
-                              maxSolverRuntime : Long)  
-    extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime) {
+class LazySolver[Term, Fun](
+  timeoutChecker : () => Unit,
+  maxSolverRuntime : Long,
+  debug : Boolean = false
+) extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime, debug) {
 
   case class LazySolverException(msg : String) extends RuntimeException(msg)
   // var preClauses = List() : List[(Int, Int)]
@@ -111,7 +113,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
 
       // Add given blocking clauses
       for (bc <- problem.blockingClauses) {
-        println("Lazy>BC: " + bc)
+        dprintln("Lazy>BC: " + bc)
         val blockingClause =
           (for ((s,t) <- bc) yield {
             if (teqt(s min t)(s max t) == -1)
@@ -158,7 +160,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
         }
       }
 
-      println("LAZY>iterations: " + iterations)
+      dprintln("LAZY>iterations: " + iterations)
 
       if (allSat) {
         S.addEntry("LAZY>RESULT:SAT,BLOCKINGCLAUSES:" + bcCount)

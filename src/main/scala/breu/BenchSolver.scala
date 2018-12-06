@@ -21,9 +21,11 @@ object BenchSolver {
   }
 }
 
-class BenchSolver[Term, Fun](timeoutChecker : () => Unit, 
-                              maxSolverRuntime : Long)  
-    extends Solver[Term, Fun](BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime) {
+class BenchSolver[Term, Fun](
+  timeoutChecker : () => Unit,
+  maxSolverRuntime : Long,
+  debug : Boolean = false
+) extends Solver[Term, Fun](BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime, debug) {
 
 
   override def getStat(res : breu.Result.Result) = { res.toString }
