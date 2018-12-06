@@ -51,22 +51,26 @@ object Timer {
     }
     startTime = now
   }
-  
+
   def measure[A](op : String)(comp : => A) : A = {
-    addTime
-    callCounters += (op -> (callCounters(op) + 1))
-    runningOps push op
-    
-    val res =
-      try {
-        comp
-      } finally {
-        addTime
-        runningOps.pop
-      }
-    
-    res
+    comp
   }
+
+  // def measure[A](op : String)(comp : => A) : A = {
+  //   addTime
+  //   callCounters += (op -> (callCounters(op) + 1))
+  //   runningOps push op
+    
+  //   val res =
+  //     try {
+  //       comp
+  //     } finally {
+  //       addTime
+  //       runningOps.pop
+  //     }
+    
+  //   res
+  // }
   
   def reset : Unit = {
     accumulatedTimes.clear
