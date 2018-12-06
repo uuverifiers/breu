@@ -126,6 +126,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     ret
   }
 
+  // TODO: Maybe place this in Instance
   def termMap() : Map[Int, Term] = {
     if (!instance.isDefined)
       throw new Exception("Trying to get termMap with no problem")

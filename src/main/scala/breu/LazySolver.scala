@@ -21,8 +21,6 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   //   preClauses = blockingClauses.map(x => (instance.termMap(x._1), instance.termMap(x._2)))
   // }
 
-  val savedBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]
-
   // Solve the  problem by:
   // (1) Generate a random assignments A
   // (2) Check if A is a solution to the problem
