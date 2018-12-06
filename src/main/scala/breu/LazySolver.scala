@@ -110,8 +110,11 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
       // Check the "hardest" problem first!
       var problemOrder = List.tabulate(problem.size)(x => x)
 
+
+      var iterations = 0
       // (1) Generate a random assignments A
       while (!infeasible && !allSat && solver.isSatisfiable()) {
+        iterations += 1
         timeoutChecker()
         Timer.measure("LazySolver.assignmentsToSolution)") {
           candidate = assignmentsToSolution(assignments)
@@ -134,6 +137,8 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
           case None => allSat = true
         }
       }
+
+      println("LAZY>iterations: " + iterations)
 
       if (allSat) {
         S.addEntry("LAZY>RESULT:SAT,BLOCKINGCLAUSES:" + bcCount)
