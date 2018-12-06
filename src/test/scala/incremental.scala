@@ -7,22 +7,29 @@ import scala.io.Source
 
 class Incremental extends FunSpec {
 
-  describe("Inc. 1") {
-    val con = new Constructor[String, String](true)
-    val X = "X"
-    val Y = "Y"
-    val a = "a"
-    val b = "b"
-    val c = "c"
+  val X = "X"
+  val Y = "Y"
+  val a = "a"
+  val b = "b"
+  val c = "c"
 
+  def baseConstructor() = {
+    val con = new Constructor[String, String](true)
     con.addDomain(a, Set(a))
     con.addDomain(b, Set(b))
     con.addDomain(c, Set(c))        
     con.addDomain(X, Set(X, c, b, a))
-    con.addDomain(Y, Set(Y, X, c, b, a))    
+    con.addDomain(Y, Set(Y, X, c, b, a))
+    con
+  }
+
+  describe("Inc. 1") {
+
 
     it("No blocking clauses") {
-      // println("<< SP 1 >>")
+
+      val con = baseConstructor()
+      println("No blocking clauses")
       val sp1 = con.newSubproblem()
       con.addGoal(List((X, a)))
       con.addGoal(List((X, b)))
@@ -30,52 +37,42 @@ class Incremental extends FunSpec {
 
       var res = con.solveLazy()
       assert(res == Result.SAT)
-      println("RES: " + res)
-      println("BC: " + con.blockingClauses)
-      println("MODEL: " + con.model)
 
-      // println("<< SP 2 >>")      
       val sp2 = con.newSubproblem()
       con.addGoal(List((Y, b)))
       
 
       res = con.solveLazy()
       assert(res == Result.SAT)
-      // println("RES: " + res)
-      // println("BC: " + con.getBlockingClauses())
-      // println("MODEL: " + con.getModel())
 
-
-      // println("<< SP 3 >>")
       val sp3 = con.newSubproblem()
       con.addGoal(List((X, b)))
-      // println(con)
-      // res = con.solveLazy(con.getBlockingClauses())
       res = con.solveLazy()
       assert(res == Result.SAT)
-      // println("RES: " + res)
-      // println("BC: " + con.getBlockingClauses())
-      // println("MODEL: " + con.getModel())      
     }
 
-    // it("Step 3 - UNSAT") {
-    //   sp2 = con.newSubproblem()
-    //   con.addGoal(sp2, List((a, b)))
-    //   val res = con.solveLazy()
-    //   assert(res == Result.UNSAT)
-    // }
+    it("With blocking clauses") {
+      println("With blocking clauses")
+      val con = baseConstructor()      
+      val sp1 = con.newSubproblem()
+      con.addGoal(List((X, a)))
+      con.addGoal(List((X, b)))
+      con.addGoal(List((X, c)))
 
-    // it("Step 4 - UNSAT") {
-    //   con.addFunction(sp2, (g, List(X), a))
-    //   con.addFunction(sp2, (g, List(b), b))      
-    //   val res = con.solveLazy()
-    //   assert(res == Result.UNSAT)
-    // }
+      var res = con.solveLazy()
+      assert(res == Result.SAT)
 
-    // it("Step 5 - SAT") {
-    //   con.addFunction(sp1, (f, List(b), b))
-    //   val res = con.solveLazy()
-    //   assert(res == Result.SAT)
-    // }                
+      val sp2 = con.newSubproblem()
+      con.addGoal(List((Y, b)))
+      
+
+      res = con.solveLazy(con.blockingClauses)
+      assert(res == Result.SAT)
+
+      val sp3 = con.newSubproblem()
+      con.addGoal(List((X, b)))
+      res = con.solveLazy(con.blockingClauses)
+      assert(res == Result.SAT) 
+    }    
   }
 }

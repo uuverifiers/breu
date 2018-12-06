@@ -65,12 +65,13 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
   def checkTO() = {}
 
-  private def solve(solver : breu.Solver[Term,Fun]) = {
+  private def solve(solver : breu.Solver[Term,Fun], blockingClauses_ : List[List[(Term, Term)]]) = {
     // Create Problem
     val prob = solver.createProblem(
       domains.toMap,
       goals.toList,
       eqs.toList,
+      blockingClauses_
     )
     instance = Some(prob)
 
@@ -95,7 +96,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     val solver = new breu.TableSolver[Term,Fun](checkTO, 60000)
     if (debug)
       solver.debug = true
-    val ret = solve(solver)
+    val ret = solve(solver, List())
     if (debug) {
       tableColumns = 
         (for (t <- solver.tables) yield {
@@ -108,11 +109,11 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     ret
   }
 
-  def solveLazy() = {
+  def solveLazy(blockingClauses_ : List[List[(Term, Term)]] = List()) = {
     val solver = new breu.LazySolver[Term,Fun](checkTO, 60000)
     if (debug)
       solver.debug = true
-    val ret = solve(solver)
+    val ret = solve(solver, blockingClauses_)
 
     val tm = termMap()
     blockingClauses = 

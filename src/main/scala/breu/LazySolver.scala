@@ -112,8 +112,26 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
 
 
       // Add given blocking clauses
-      for (bc <- problem.blockingClauses)
+      for (bc <- problem.blockingClauses) {
         println("Lazy>BC: " + bc)
+        val blockingClause =
+          (for ((s,t) <- bc) yield {
+            if (teqt(s min t)(s max t) == -1)
+              teqt(s min t)(s max t) =
+                termEqTermAux(assignments(s), assignments(t))
+            teqt(s min t)(s max t)
+          }).toArray
+
+        try {
+          savedBlockingClauses += bc.toList
+          solver.addClause(new VecInt(blockingClause))
+          bcCount += 1
+        } catch {
+          case e : org.sat4j.specs.ContradictionException => {
+            throw new Exception("Blocking Clauses are Contradictory")
+          }
+        }
+      }
 
       var iterations = 0
       // (1) Generate a random assignments A
