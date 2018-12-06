@@ -21,6 +21,8 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   //   preClauses = blockingClauses.map(x => (instance.termMap(x._1), instance.termMap(x._2)))
   // }
 
+  val savedBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]
+
   // Solve the  problem by:
   // (1) Generate a random assignments A
   // (2) Check if A is a solution to the problem
@@ -93,6 +95,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
 
 
           try {
+            savedBlockingClauses += finalDQ.toList            
             solver.addClause(new VecInt(blockingClause))
             bcCount += 1
             false
@@ -153,6 +156,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   def unsatCoreAux(problem : Problem, timeout : Int) = lastUnsatCore
 
   def unitBlockingClauses = unitClauses
+  def blockingClauses = savedBlockingClauses
 
   // We automatically calculate unsatCore
   var lastUnsatCore = List() : Seq[Int]

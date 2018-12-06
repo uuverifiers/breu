@@ -44,14 +44,14 @@ object BREUtest {
     println(cons)
 
     val t0 = System.nanoTime()
-    cons.solveLazy()
+    val res = cons.solveLazy()
     val t1 = System.nanoTime()
     val runTime = t1 - t0
     println("Time: " + runTime/1000000 + " ms")
-    println("UnitClauses: ")
-    for (uc <- cons.unitClauses)
-      println("\t" + uc)
-
-
+    if (res == breu.Result.SAT) {
+      println("BlockingClauses: ")
+      for (bc <- cons.blockingClauses.get)
+        println("\t" + bc)
+    }
   }
 }

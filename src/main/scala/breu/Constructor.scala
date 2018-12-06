@@ -9,19 +9,28 @@ import scala.collection.mutable.ListBuffer
  */
 
 class Constructor[Term, Fun](debug : Boolean = false) {
+
+  // Some useful types
   type Domain = (Term, Set[Term])
   type FunApp = (Fun, Seq[Term], Term)
   type Goal = Seq[(Term, Term)]
 
+  // Subproblems are stored here
+  // TODO: Maybe replace by just storing last one and storing subProblems
   val domains : ListBuffer[Domain] = ListBuffer()
   val eqs : ListBuffer[ListBuffer[FunApp]] = ListBuffer()
   val goals : ListBuffer[ListBuffer[Goal]] = ListBuffer()
 
 
+  // State
   var subProblems = 0
+  var instance = None : Option[Instance[Term, Fun]]
+
+  // Auxilliary information from solvers
   var tableColumns = List() : List[Int]
-  var unitClauses = List() : List[(Int, Int)]
-  var model = None : Option[Map[Int,Int]]
+  var blockingClauses = None : Option[List[List[(Term, Term)]]]
+  // var unitClauses = List() : List[(Int, Int)]
+  var model = None : Option[Map[Term,Term]]
 
   def addDomain(t : Term, d : Set[Term]) =
     domains += ((t, d))
@@ -63,10 +72,22 @@ class Constructor[Term, Fun](debug : Boolean = false) {
       goals.toList,
       eqs.toList,
     )
+    instance = Some(prob)
+
 
     // Solve Problem
     val res = prob.solve
-    model = prob.model
+
+    val tm = termMap()
+    model = 
+      if (prob.model.isDefined) {
+        Some((for ((k, v) <- prob.model.get) yield {
+          (tm(k), tm(v))
+        }).toMap)
+      } else {
+        None
+      }
+
     res
   }
 
@@ -92,10 +113,23 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     if (debug)
       solver.debug = true
     val ret = solve(solver)
-    if (debug) {
-      unitClauses = solver.unitBlockingClauses.toList
-    }
+
+    val tm = termMap()
+    blockingClauses = 
+      Some((for (bc <- solver.blockingClauses) yield {
+        (for ((s, t) <- bc) yield {
+          (tm(s), tm(t))
+        }).toList
+      }).toList)
+
     ret
-  }  
+  }
+
+  def termMap() : Map[Int, Term] = {
+    if (!instance.isDefined)
+      throw new Exception("Trying to get termMap with no problem")
+    else
+      (instance.get.termMap).map(_.swap)
+  }
 
 }
