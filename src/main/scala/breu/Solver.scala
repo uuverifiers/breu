@@ -87,7 +87,8 @@ abstract class Solver[Term, Fun](
   var curId = 0
   var previousInstance = None : Option[Instance[Term, Fun]]
 
-  val savedBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]  
+  val positiveBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]
+  val negativeBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]    
 
   def getStat(result : breu.Result.Result) : String
 

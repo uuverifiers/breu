@@ -16,12 +16,6 @@ class LazySolver[Term, Fun](
 ) extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime, debug) {
 
   case class LazySolverException(msg : String) extends RuntimeException(msg)
-  // var preClauses = List() : List[(Int, Int)]
-
-  // // TODO: Make this nicer, e.g., make a LazyInstance instead
-  // def addBlockingClauses(instance : Instance, blockingClauses : Seq[(Term, Term)]) = {
-  //   preClauses = blockingClauses.map(x => (instance.termMap(x._1), instance.termMap(x._2)))
-  // }
 
   // Solve the  problem by:
   // (1) Generate a random assignments A
@@ -91,7 +85,7 @@ class LazySolver[Term, Fun](
           }
 
           try {
-            savedBlockingClauses += finalDQ.toList            
+            positiveBlockingClauses += finalDQ.toList            
             solver.addClause(new VecInt(blockingClause))
             bcCount += 1
             false
@@ -112,8 +106,8 @@ class LazySolver[Term, Fun](
 
 
       // Add given blocking clauses
-      for (bc <- problem.blockingClauses) {
-        dprintln("Lazy>BC: " + bc)
+      for (bc <- problem.positiveBlockingClauses) {
+        dprintln("Lazy>+BC: " + bc)
         val blockingClause =
           (for ((s,t) <- bc) yield {
             if (teqt(s min t)(s max t) == -1)
@@ -123,7 +117,7 @@ class LazySolver[Term, Fun](
           }).toArray
 
         try {
-          savedBlockingClauses += bc.toList
+          positiveBlockingClauses += bc.toList
           solver.addClause(new VecInt(blockingClause))
           bcCount += 1
         } catch {
@@ -132,6 +126,27 @@ class LazySolver[Term, Fun](
           }
         }
       }
+
+      for (bc <- problem.negativeBlockingClauses) {
+        dprintln("Lazy>-BC: " + bc)
+        val blockingClause =
+          (for ((s,t) <- bc) yield {
+            if (teqt(s min t)(s max t) == -1)
+              teqt(s min t)(s max t) =
+                termEqTermAux(assignments(s), assignments(t))
+            -teqt(s min t)(s max t)
+          }).toArray
+
+        try {
+          negativeBlockingClauses += bc.toList
+          solver.addClause(new VecInt(blockingClause))
+          bcCount += 1
+        } catch {
+          case e : org.sat4j.specs.ContradictionException => {
+            throw new Exception("Blocking Clauses are Contradictory")
+          }
+        }
+      }      
 
       var iterations = 0
       // (1) Generate a random assignments A
@@ -178,8 +193,8 @@ class LazySolver[Term, Fun](
 
   def unsatCoreAux(problem : Problem, timeout : Int) = lastUnsatCore
 
-  def unitBlockingClauses = unitClauses
-  def blockingClauses = savedBlockingClauses
+  // def unitBlockingClauses = unitClauses
+  // def blockingClauses = savedBlockingClauses
 
   // We automatically calculate unsatCore
   var lastUnsatCore = List() : Seq[Int]

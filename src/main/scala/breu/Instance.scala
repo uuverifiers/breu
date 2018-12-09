@@ -15,7 +15,8 @@ class Instance[Term, Fun](
   originalDomains : Map[Term, Set[Term]]) {
 
   var model = None : Option[Map[Int, Int]]
-  var blockingClauses = List() : List[List[(Term, Term)]]
+  var positiveBlockingClauses = List() : List[List[(Term, Term)]]
+  var negativeBlockingClauses = List() : List[List[(Term, Term)]]  
 
   override def toString = {
     termMap.toString + "\n" +
@@ -51,7 +52,7 @@ class Instance[Term, Fun](
         // Make model
         // println("TRIVIAL SOLUTION FOUND")
         model = Some(ts.get.toMap)
-        blockingClauses = List()
+        positiveBlockingClauses = List()
         return breu.Result.SAT
 
         // TODO: What is the point of this one?
@@ -71,12 +72,19 @@ class Instance[Term, Fun](
       model = retval._2
 
       val tm = termMap.map(_.swap)
-      blockingClauses =
-        (for (bc <- solver.savedBlockingClauses) yield {
+      positiveBlockingClauses =
+        (for (bc <- solver.positiveBlockingClauses) yield {
           (for ((s, t) <- bc) yield {
             (tm(s), tm(t))
           }).toList
         }).toList
+
+      negativeBlockingClauses =
+        (for (bc <- solver.negativeBlockingClauses) yield {
+          (for ((s, t) <- bc) yield {
+            (tm(s), tm(t))
+          }).toList
+        }).toList      
       
       solver.previousInstance = Some(this)
       retval._1

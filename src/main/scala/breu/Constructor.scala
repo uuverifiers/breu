@@ -113,7 +113,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
     val tm = termMap()
     blockingClauses = 
-      (for (bc <- solver.blockingClauses) yield {
+      (for (bc <- solver.positiveBlockingClauses) yield {
         (for ((s, t) <- bc) yield {
           (tm(s), tm(t))
         }).toList

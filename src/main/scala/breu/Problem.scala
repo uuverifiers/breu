@@ -86,7 +86,8 @@ case class Problem(
   val bits : Int,
   val order : Seq[Int],
   val subProblems : Seq[SubProblem],
-  val blockingClauses : Seq[Seq[(Int, Int)]] = List()) {
+  val positiveBlockingClauses : Seq[Seq[(Int, Int)]] = List(),
+  val negativeBlockingClauses : Seq[Seq[(Int, Int)]] = List())  {
 
   val size = subProblems.length
 
