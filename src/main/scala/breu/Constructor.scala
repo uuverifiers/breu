@@ -28,7 +28,8 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
   // Auxilliary information from solvers
   var tableColumns = List() : List[Int]
-  var blockingClauses = List() : List[List[(Term, Term)]]
+  var posBlockingClauses = List() : List[List[(Term, Term)]]
+  var negBlockingClauses = List() : List[List[(Term, Term)]]  
   // var unitClauses = List() : List[(Int, Int)]
   var model = None : Option[Map[Term,Term]]
 
@@ -65,13 +66,14 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
   def checkTO() = {}
 
-  private def solve(solver : breu.Solver[Term,Fun], blockingClauses_ : List[List[(Term, Term)]]) = {
+  private def solve(solver : breu.Solver[Term,Fun], posBlockingClauses_ : List[List[(Term, Term)]], negBlockingClauses_ : List[List[(Term, Term)]]) = {
     // Create Problem
     val prob = solver.createProblem(
       domains.toMap,
       goals.toList,
       eqs.toList,
-      blockingClauses_
+      posBlockingClauses_,
+      negBlockingClauses_      
     )
     instance = Some(prob)
 
@@ -94,7 +96,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
   def solveTable() = {
     val solver = new breu.TableSolver[Term,Fun](checkTO, 60000, debug)
-    val ret = solve(solver, List())
+    val ret = solve(solver, List(), List())
     if (debug) {
       tableColumns = 
         (for (t <- solver.tables) yield {
@@ -107,17 +109,24 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     ret
   }
 
-  def solveLazy(blockingClauses_ : List[List[(Term, Term)]] = List()) = {
+  def solveLazy(posBlockingClauses_ : List[List[(Term, Term)]] = List(), negBlockingClauses_ : List[List[(Term, Term)]] = List()) = {
     val solver = new breu.LazySolver[Term,Fun](checkTO, 60000, debug)
-    val ret = solve(solver, blockingClauses_)
+    val ret = solve(solver, posBlockingClauses_, negBlockingClauses_)
 
     val tm = termMap()
-    blockingClauses = 
+    posBlockingClauses = 
       (for (bc <- solver.positiveBlockingClauses) yield {
         (for ((s, t) <- bc) yield {
           (tm(s), tm(t))
         }).toList
       }).toList
+
+    negBlockingClauses = 
+      (for (bc <- solver.negativeBlockingClauses) yield {
+        (for ((s, t) <- bc) yield {
+          (tm(s), tm(t))
+        }).toList
+      }).toList    
 
     ret
   }

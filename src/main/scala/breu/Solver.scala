@@ -505,7 +505,8 @@ abstract class Solver[Term, Fun](
   def intCreateProblem(
     domains : Domains,
     subProblems : Seq[(Goal, Seq[Eq])],
-    intBlockingClauses : Seq[Seq[(Int, Int)]]) : Problem = {
+    intPosBlockingClauses : Seq[Seq[(Int, Int)]],
+    intNegBlockingClauses : Seq[Seq[(Int, Int)]]) : Problem = {    
 
     val problemCount = subProblems.length
     val allTerms = (domains.terms ++ subProblems.map{
@@ -593,7 +594,8 @@ abstract class Solver[Term, Fun](
       bits,
       order,
       problems,
-      intBlockingClauses)
+      intPosBlockingClauses,
+      intNegBlockingClauses)
   }
 
 
@@ -601,7 +603,8 @@ abstract class Solver[Term, Fun](
     domains : TermDomains,
     goals : Seq[TermGoal],
     eqs : Seq[Seq[TermEq]],
-    blockingClauses : Seq[Seq[(Term, Term)]]) : Instance[Term, Fun] = {
+    posBlockingClauses : Seq[Seq[(Term, Term)]],
+    negBlockingClauses : Seq[Seq[(Term, Term)]]) : Instance[Term, Fun] = {
 
     curId += 1
     val problemCount = goals.length
@@ -655,14 +658,22 @@ abstract class Solver[Term, Fun](
         (newGoal, newEqs : Seq[Eq])
       }
 
-    val intBlockingClauses =
-      (for (bc <- blockingClauses) yield {
+    val intPosBlockingClauses =
+      (for (bc <- posBlockingClauses) yield {
         for ((t1,t2) <- bc) yield {
           (termToInt(t1), termToInt(t2))
         }
       })
 
-    val problem = intCreateProblem(newDomains, subProblems, intBlockingClauses)
+
+    val intNegBlockingClauses =
+      (for (bc <- negBlockingClauses) yield {
+        for ((t1,t2) <- bc) yield {
+          (termToInt(t1), termToInt(t2))
+        }
+      })    
+
+    val problem = intCreateProblem(newDomains, subProblems, intPosBlockingClauses, intNegBlockingClauses)
 
     new Instance[Term, Fun](curId, this, problem, termToInt.toMap, domains)
   }
@@ -670,6 +681,6 @@ abstract class Solver[Term, Fun](
   def createProblem(
     domains : TermDomains,
     goals : Seq[TermGoal],
-    eqs : Seq[Seq[TermEq]]) : Instance[Term, Fun] = createProblem(domains, goals, eqs, List())
+    eqs : Seq[Seq[TermEq]]) : Instance[Term, Fun] = createProblem(domains, goals, eqs, List(), List())
 }
 

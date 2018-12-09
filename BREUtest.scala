@@ -49,9 +49,12 @@ object BREUtest {
     val runTime = t1 - t0
     println("Time: " + runTime/1000000 + " ms")
     if (res == breu.Result.SAT) {
-      println("BlockingClauses: ")
-      for (bc <- cons.blockingClauses)
+      println("PositiveBlockingClauses: ")
+      for (bc <- cons.posBlockingClauses)
         println("\t" + bc)
+      println("NegativeBlockingClauses: ")      
+      for (bc <- cons.negBlockingClauses)
+        println("\t" + bc)      
     }
   }
 }

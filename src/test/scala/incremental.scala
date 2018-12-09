@@ -64,12 +64,14 @@ class Incremental extends FunSpec {
       con.addGoal(List((Y, b)))
       
 
-      res = con.solveLazy(con.blockingClauses)
+      val (pbc1, nbc1) = (con.posBlockingClauses, con.negBlockingClauses)
+      res = con.solveLazy(pbc1, nbc1)
       assert(res == Result.SAT)
 
       val sp3 = con.newSubproblem()
       con.addGoal(List((X, b)))
-      res = con.solveLazy(con.blockingClauses)
+      val (pbc2, nbc2) = (con.posBlockingClauses, con.negBlockingClauses)      
+      res = con.solveLazy(pbc2, nbc2)
       assert(res == Result.SAT) 
     }    
   }
