@@ -45,6 +45,7 @@ class TableSolver[Term, Fun](debug : Boolean = false) extends Solver[Term, Fun](
       for (t <- tab)
       yield t.addVConstraint
 
+    // TODO: Fix sat solver for TableSolver as well
     val retVal =
       if (ccs contains None) {
         false

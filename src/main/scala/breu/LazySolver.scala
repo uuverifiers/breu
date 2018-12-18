@@ -58,6 +58,7 @@ class LazySolver[Term, Fun](debug : Boolean = false) extends Solver[Term, Fun](d
           // Now we minimize DI to only contain "relevant" inequalities
           DQ.minimise(cp.terms, cp.goal.subGoals, heuristic)
 
+
           // Remove all "base" inequalities, since they will always be there
           val ineqs = DQ.inequalities(cp.terms)
           val finalDQ = for ((s,t) <- ineqs; if cp.baseDQ(s, t)) yield (s, t)

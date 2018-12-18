@@ -108,39 +108,27 @@ abstract class Solver[Term, Fun](debug : Boolean) {
     if (debug)
       println(str)  
 
-  // TODO: Check if this is performance degrading
-  // TODO: Add option for disabling timeouts
-  // TODO: Possible memory leak
+
   def satSolve() : Boolean = {
-    import scala.concurrent.duration._    
-    import scala.concurrent.{Await, Future}
-    import scala.util.{Failure, Success}
-
-    implicit val executionContext = scala.concurrent.ExecutionContext.Implicits.global
-
-    def sat4j = Future[Boolean] { solver.isSatisfiable() }
-
+    checkTO()
     val REM_TIME = MAX_TIME - (System.currentTimeMillis - START_TIME)
-    if (REM_TIME <= 0)
-      throw new java.util.concurrent.TimeoutException
-
-    val res =
-      Timeout.futureWithTimeout(sat4j, REM_TIME).map {
-        result => result
-      }
-
+    solver.setTimeoutMs(REM_TIME)
     try {
-      Await.result(res, Duration(REM_TIME, MILLISECONDS))
+      solver.isSatisfiable()
     } catch {
-      case e : Exception => throw e
-    } finally {
+      case e : Exception =>{
+        dprintln("satSolve() timeout!")
+        throw e
+      }
     }
   }
 
   def checkTO() = {
     val CUR_TIME = System.currentTimeMillis
-    if (CUR_TIME - START_TIME >= MAX_TIME)
-      throw new java.util.concurrent.TimeoutException
+    if (CUR_TIME - START_TIME >= MAX_TIME) {
+      dprintln("checkTO() timeout!")
+      throw new org.sat4j.specs.TimeoutException
+    }
   }
 
   def solve(problem : Problem, timeout : Long, asserted : Boolean = false) = 
@@ -162,8 +150,9 @@ abstract class Solver[Term, Fun](debug : Boolean) {
       case e : org.sat4j.specs.ContradictionException => {
         (breu.Result.UNSAT, None)
       }
-      case e : java.util.concurrent.TimeoutException => {
-        (breu.Result.UNKNOWN, None)
+
+      case e : org.sat4j.specs.TimeoutException => {
+        (breu.Result.UNKNOWN, None)        
       }
     }
 

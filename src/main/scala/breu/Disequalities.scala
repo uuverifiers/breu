@@ -216,7 +216,7 @@ class Disequalities(
   }
 
   def cascadeRemove(s : Int, t : Int) : Unit = Timer.measure("cascadeRemove") {
-  // Timer.measure("cascadeRemove") {
+    // Timer.measure("cascadeRemove") {
     val todo = Queue() : Queue[(Int, Int)]
     val inQueue = Array.ofDim[Boolean](size, size)
 
@@ -292,8 +292,8 @@ class Disequalities(
 
 
       // Timer.measure("cascadeRemove.transitivity") {
-        transitivity(s, t)
-        transitivity(t, s)
+      transitivity(s, t)
+      transitivity(t, s)
       // }
     }
   }
@@ -312,7 +312,6 @@ class Disequalities(
     for ((s, t) <- ineqsSort) {
       timeoutChecker()
       this.cascadeRemove(s, t)
-
       val sat = this.satisfies(goals)
       if (!sat) {
         this.setBase
