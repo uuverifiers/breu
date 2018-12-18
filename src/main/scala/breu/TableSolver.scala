@@ -12,11 +12,7 @@ import scala.collection.mutable.ListBuffer
 
 
 // Implementing the Table Solver (as presented in [1])
-class TableSolver[Term, Fun](
-  timeoutChecker : () => Unit,
-  maxSolverRuntime : Long,
-  debug : Boolean = false
-) extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime, debug) {
+class TableSolver[Term, Fun](debug : Boolean = false) extends Solver[Term, Fun](debug) {
 
   // Stores one table for each Problem
   var tables = Array() : Array[Option[Table]]
@@ -84,7 +80,7 @@ class TableSolver[Term, Fun](
         problem(index).goal.subGoals))
 
       (tmpTables(index).get).addInitialColumn(assignments)
-      (tmpTables(index).get).addDerivedColumn(timeoutChecker)
+      (tmpTables(index).get).addDerivedColumn(checkTO)
     }
 
     addTable(0)
@@ -94,7 +90,7 @@ class TableSolver[Term, Fun](
     var tmpModel = None : Option[Array[Int]]
 
     while (cont) {
-      timeoutChecker()
+      checkTO()
 
       // TODO: Empty goals == UNSAT!
       val goalConstraints =
@@ -121,7 +117,7 @@ class TableSolver[Term, Fun](
             //   problem(p).baseDQ, problem(p).goal.subGoals))
 
             // (tmpTables(p).get).addInitialColumn(assignments)
-            // (tmpTables(p).get).addDerivedColumn(timeoutChecker)
+            // (tmpTables(p).get).addDerivedColumn(checkTO)
             allSat = false
           }
 
@@ -140,7 +136,7 @@ class TableSolver[Term, Fun](
           cont = false
         } else {
           for (t <- tmpTables; if t.isDefined)
-            (t.get).addDerivedColumn(timeoutChecker)
+            (t.get).addDerivedColumn(checkTO)
         }
       }
     }
@@ -355,7 +351,7 @@ class Table(val bits : Int, alloc : Allocator,
     columns += newColumn
   }
 
-  def addDerivedColumn(timeoutChecker : () => Unit) = {
+  def addDerivedColumn(checkTO : () => Unit) = {
     // For all pairs of eqs with identical function symbols and
     // different results,form a 3-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
     currentColumn += 1
@@ -425,7 +421,7 @@ class Table(val bits : Int, alloc : Allocator,
 
     for (t <- terms) {
       // --- CASE0: Not a representing term, following a rowless bit ---
-      timeoutChecker()
+      checkTO()
       val neqBits =
         (for (tt <- terms) yield {
           -termEqInt((currentColumn-1, t), tt)
@@ -488,7 +484,7 @@ class Table(val bits : Int, alloc : Allocator,
 
       val funcBits =
         (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
-          timeoutChecker()
+          checkTO()
           // C_p[s_i] = t
           val prevEqBit = termEqInt((currentColumn - 1, s_i), t)
 

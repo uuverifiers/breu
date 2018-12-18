@@ -5,7 +5,7 @@ object Tester {
   def checkTO() = {
   }
 
-  def test(file : String) : breu.Result.Value = {
+  def test(file : String, timeout : Long) : breu.Result.Value = {
     val cons = new breu.Constructor[String,String]()
 
     val input = io.Source.fromFile(file).getLines.toList
@@ -38,6 +38,6 @@ object Tester {
       }
     }
 
-    cons.solveLazy()
+    cons.solveLazy(timeout)
   }
 }

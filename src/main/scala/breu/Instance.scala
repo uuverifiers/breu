@@ -29,7 +29,7 @@ class Instance[Term, Fun](
   }
 
 
-  def solve : Result.Result = {
+  def solve(timeout : Long) : Result.Result = {
     confirmActive
     //
     val (solved, newModel) =
@@ -61,11 +61,14 @@ class Instance[Term, Fun](
 
       val retval =
         try {
-          solver.solve(problem, false)
+          solver.solve(problem, timeout)
         } catch {
           case to : org.sat4j.specs.TimeoutException => {
             (breu.Result.UNKNOWN, None)
           }
+          case to : java.util.concurrent.TimeoutException => {
+            (breu.Result.UNKNOWN, None)
+          }            
         }
 
 

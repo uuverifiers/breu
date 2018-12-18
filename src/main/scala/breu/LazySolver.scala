@@ -9,11 +9,7 @@ import org.sat4j.core.VecInt
 import scala.collection.mutable.{Set => MSet, ListBuffer}
 
 
-class LazySolver[Term, Fun](
-  timeoutChecker : () => Unit,
-  maxSolverRuntime : Long,
-  debug : Boolean = false
-) extends Solver[Term, Fun](timeoutChecker, maxSolverRuntime, debug) {
+class LazySolver[Term, Fun](debug : Boolean = false) extends Solver[Term, Fun](debug) {
 
   case class LazySolverException(msg : String) extends RuntimeException(msg)
 
@@ -43,7 +39,7 @@ class LazySolver[Term, Fun](
       def handleBlockingProblem(cp : SubProblem, solution : Map[Int, Int]) =
         Timer.measure("handleBlockingProblem") {
           // val DQ = new Disequalities(cp.DQ)
-          val DQ = new Disequalities(cp.terms.max+1, cp.funEqs.toArray, timeoutChecker)
+          val DQ = new Disequalities(cp.terms.max+1, cp.funEqs.toArray, checkTO)
 
           // Could we replace this by just doing cascade-remove on the assignments?
           val uf = Util.BreunionFind(cp.terms, List(), solution.toList)
@@ -150,9 +146,9 @@ class LazySolver[Term, Fun](
 
       var iterations = 0
       // (1) Generate a random assignments A
-      while (!infeasible && !allSat && solver.isSatisfiable()) {
+      while (!infeasible && !allSat && satSolve()) {
         iterations += 1
-        timeoutChecker()
+        checkTO()
         Timer.measure("LazySolver.assignmentsToSolution)") {
           candidate = assignmentsToSolution(assignments)
         }

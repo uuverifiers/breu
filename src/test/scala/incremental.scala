@@ -34,19 +34,19 @@ class Incremental extends FunSpec {
       con.addGoal(List((X, b)))
       con.addGoal(List((X, c)))
 
-      var res = con.solveLazy()
+      var res = con.solveLazy(1000)
       assert(res == Result.SAT)
 
       val sp2 = con.newSubproblem()
       con.addGoal(List((Y, b)))
       
 
-      res = con.solveLazy()
+      res = con.solveLazy(1000)
       assert(res == Result.SAT)
 
       val sp3 = con.newSubproblem()
       con.addGoal(List((X, b)))
-      res = con.solveLazy()
+      res = con.solveLazy(1000)
       assert(res == Result.SAT)
     }
 
@@ -57,7 +57,7 @@ class Incremental extends FunSpec {
       con.addGoal(List((X, b)))
       con.addGoal(List((X, c)))
 
-      var res = con.solveLazy()
+      var res = con.solveLazy(1000)
       assert(res == Result.SAT)
 
       val sp2 = con.newSubproblem()
@@ -65,13 +65,13 @@ class Incremental extends FunSpec {
       
 
       val (pbc1, nbc1) = (con.posBlockingClauses, con.negBlockingClauses)
-      res = con.solveLazy(pbc1, nbc1)
+      res = con.solveLazy(1000, pbc1, nbc1)
       assert(res == Result.SAT)
 
       val sp3 = con.newSubproblem()
       con.addGoal(List((X, b)))
       val (pbc2, nbc2) = (con.posBlockingClauses, con.negBlockingClauses)      
-      res = con.solveLazy(pbc2, nbc2)
+      res = con.solveLazy(100000, pbc2, nbc2)
       assert(res == Result.SAT) 
     }    
   }

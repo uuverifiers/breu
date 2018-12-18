@@ -14,18 +14,9 @@ case class BenchTimeoutException(msg : String) extends RuntimeException(msg)
 object BenchSolver {
   val TIMEOUT = 10000 : Long
   var startTime = System.currentTimeMillis()
-  def customTimeoutChecker(timeout : Long)() = {
-    if (System.currentTimeMillis() - startTime >= timeout) {
-      throw new BenchTimeoutException("Bench Timeout")
-    }
-  }
 }
 
-class BenchSolver[Term, Fun](
-  timeoutChecker : () => Unit,
-  maxSolverRuntime : Long,
-  debug : Boolean = false
-) extends Solver[Term, Fun](BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime, debug) {
+class BenchSolver[Term, Fun](debug : Boolean = false) extends Solver[Term, Fun](debug) {
 
 
   override def getStat(res : breu.Result.Result) = { res.toString }
@@ -109,10 +100,10 @@ class BenchSolver[Term, Fun](
 
   // println("Creating BenchSolver...")
   BenchSolver.startTime = System.currentTimeMillis()
-  val tsolver = new TableSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
+  val tsolver = new TableSolver()
   // println("\ttable solver")
   BenchSolver.startTime = System.currentTimeMillis()
-  val lsolver = new LazySolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
+  val lsolver = new LazySolver()
   // println("\tlazy solver")
 
 }

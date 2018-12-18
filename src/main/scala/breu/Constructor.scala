@@ -58,15 +58,13 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     (for ((fs, gs) <- eqs zip goals) yield {
       "< --- SUBPROBLEM --- >\n" +
       "Eqs:\n" +
-      (for ((f, args, r) <- fs) yield ("\t" + f + "(" + args.mkString(",") + ") = " + r)).mkString("\n") +
+      (for ((f, args, r) <- fs) yield ("\t" + f + "(" + args.mkString(",") + ") = " + r)).mkString("\n") + "\n" +
       "Goals:\n" +
       (for (g <- gs) yield ("\t" + g)).mkString("\n")
     }).mkString("\n")
   }
 
-  def checkTO() = {}
-
-  private def solve(solver : breu.Solver[Term,Fun], posBlockingClauses_ : List[List[(Term, Term)]], negBlockingClauses_ : List[List[(Term, Term)]]) = {
+  private def solve(solver : breu.Solver[Term,Fun], timeout : Long, posBlockingClauses_ : List[List[(Term, Term)]], negBlockingClauses_ : List[List[(Term, Term)]]) = {
     // Create Problem
     val prob = solver.createProblem(
       domains.toMap,
@@ -79,7 +77,7 @@ class Constructor[Term, Fun](debug : Boolean = false) {
 
 
     // Solve Problem
-    val res = prob.solve
+    val res = prob.solve(timeout)
 
     val tm = termMap()
     model = 
@@ -94,9 +92,9 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     res
   }
 
-  def solveTable() = {
-    val solver = new breu.TableSolver[Term,Fun](checkTO, 60000, debug)
-    val ret = solve(solver, List(), List())
+  def solveTable(timeout : Long) = {
+    val solver = new breu.TableSolver[Term,Fun](debug)
+    val ret = solve(solver, timeout, List(), List())
     if (debug) {
       tableColumns = 
         (for (t <- solver.tables) yield {
@@ -109,9 +107,9 @@ class Constructor[Term, Fun](debug : Boolean = false) {
     ret
   }
 
-  def solveLazy(posBlockingClauses_ : List[List[(Term, Term)]] = List(), negBlockingClauses_ : List[List[(Term, Term)]] = List()) = {
-    val solver = new breu.LazySolver[Term,Fun](checkTO, 60000, debug)
-    val ret = solve(solver, posBlockingClauses_, negBlockingClauses_)
+  def solveLazy(timeout : Long, posBlockingClauses_ : List[List[(Term, Term)]] = List(), negBlockingClauses_ : List[List[(Term, Term)]] = List()) = {
+    val solver = new breu.LazySolver[Term,Fun](debug)
+    val ret = solve(solver, timeout, posBlockingClauses_, negBlockingClauses_)
 
     val tm = termMap()
     posBlockingClauses = 

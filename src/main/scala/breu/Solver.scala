@@ -62,10 +62,18 @@ class Stats {
  * Requires solveaux and unsatCore to be defined
  * 
  */
-abstract class Solver[Term, Fun](
-  val timeoutChecker : () => Unit,
-  val maxSolverRuntime : Long,
-  debug : Boolean) {
+// TODO: We used to have a timeoutChecker, it now replaced by a fixed timeout.
+//
+// Maybe the other way is preferable, but I have not found a
+// convenient way to abort sat4j. Maybe running one thread which polls
+// the timeoutchecker and then sends and abort to sat4j is possible..
+abstract class Solver[Term, Fun](debug : Boolean) {
+
+  // TODO: Maybe construct better way of keeping track of time?
+
+  var START_TIME : Long = System.currentTimeMillis
+  // TODO: Currently we have 1 minute to create problems
+  var MAX_TIME : Long = 60000
 
   type TermDomains = Map[Term, Set[Term]]
   type TermEq = (Fun, Seq[Term], Term)
@@ -80,7 +88,7 @@ abstract class Solver[Term, Fun](
   val solver = SolverFactory.newDefault()
   val MAXVAR = 1000000;
   solver.newVar(MAXVAR);
-  solver.setTimeoutMs(maxSolverRuntime)
+  solver.setTimeout(1)
   val gt = new GateTranslator(solver)
 
   val S = new Stats
@@ -100,8 +108,46 @@ abstract class Solver[Term, Fun](
     if (debug)
       println(str)  
 
-  def solve(problem : Problem, asserted : Boolean) = 
+  // TODO: Check if this is performance degrading
+  // TODO: Add option for disabling timeouts
+  // TODO: Possible memory leak
+  def satSolve() : Boolean = {
+    import scala.concurrent.duration._    
+    import scala.concurrent.{Await, Future}
+    import scala.util.{Failure, Success}
+
+    implicit val executionContext = scala.concurrent.ExecutionContext.Implicits.global
+
+    def sat4j = Future[Boolean] { solver.isSatisfiable() }
+
+    val REM_TIME = MAX_TIME - (System.currentTimeMillis - START_TIME)
+    if (REM_TIME <= 0)
+      throw new java.util.concurrent.TimeoutException
+
+    val res =
+      Timeout.futureWithTimeout(sat4j, REM_TIME).map {
+        result => result
+      }
+
+    try {
+      Await.result(res, Duration(REM_TIME, MILLISECONDS))
+    } catch {
+      case e : Exception => throw e
+    } finally {
+    }
+  }
+
+  def checkTO() = {
+    val CUR_TIME = System.currentTimeMillis
+    if (CUR_TIME - START_TIME >= MAX_TIME)
+      throw new java.util.concurrent.TimeoutException
+  }
+
+  def solve(problem : Problem, timeout : Long, asserted : Boolean = false) = 
   Timer.measure("Solver.solve") {
+
+    START_TIME = System.currentTimeMillis
+    MAX_TIME = timeout
 
     val result = 
     try {
@@ -115,6 +161,9 @@ abstract class Solver[Term, Fun](
     } catch {
       case e : org.sat4j.specs.ContradictionException => {
         (breu.Result.UNSAT, None)
+      }
+      case e : java.util.concurrent.TimeoutException => {
+        (breu.Result.UNKNOWN, None)
       }
     }
 
@@ -155,7 +204,6 @@ abstract class Solver[Term, Fun](
   def reset = {
     solver.reset()
     alloc.reset
-    solver.setTimeoutMs(maxSolverRuntime)
     solver.addClause(new VecInt(Array(-ZEROBIT)))
     solver.addClause(new VecInt(Array(ONEBIT)))
     S.clear
@@ -394,7 +442,7 @@ abstract class Solver[Term, Fun](
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val DQ = new Disequalities(size, eqs.toArray, timeoutChecker)
+    val DQ = new Disequalities(size, eqs.toArray, checkTO)
     for (t <- terms) {
       val domain = domains(t)
 
@@ -420,7 +468,7 @@ abstract class Solver[Term, Fun](
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val baseDQ = new Disequalities(size, eqs.toArray, timeoutChecker)
+    val baseDQ = new Disequalities(size, eqs.toArray, checkTO)
     for (t <- terms) {
       val domain = domains(t)
 
@@ -506,7 +554,7 @@ abstract class Solver[Term, Fun](
     domains : Domains,
     subProblems : Seq[(Goal, Seq[Eq])],
     intPosBlockingClauses : Seq[Seq[(Int, Int)]],
-    intNegBlockingClauses : Seq[Seq[(Int, Int)]]) : Problem = {    
+    intNegBlockingClauses : Seq[Seq[(Int, Int)]]) : Problem = {
 
     val problemCount = subProblems.length
     val allTerms = (domains.terms ++ subProblems.map{
@@ -599,6 +647,7 @@ abstract class Solver[Term, Fun](
   }
 
 
+  // TODO: No timeouts for creating problems
   def createProblem(
     domains : TermDomains,
     goals : Seq[TermGoal],

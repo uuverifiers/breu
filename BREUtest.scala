@@ -5,7 +5,12 @@ object BREUtest {
 
   def main(args : Array[String]) : Unit = {
     if (args.length < 1)
-      return println("Usage: BREUtest input.breu")
+      return println("Usage: BREUtest input.breu [timeout]")
+    val timeout : Long =
+      if (args.length < 2)
+        5000
+      else
+        args(1).toLong
 
     val cons = new breu.Constructor[String,String]()
 
@@ -44,17 +49,25 @@ object BREUtest {
     println(cons)
 
     val t0 = System.nanoTime()
-    val res = cons.solveLazy()
+    val res = cons.solveLazy(timeout)
     val t1 = System.nanoTime()
     val runTime = t1 - t0
-    println("Time: " + runTime/1000000 + " ms")
-    if (res == breu.Result.SAT) {
-      println("PositiveBlockingClauses: ")
-      for (bc <- cons.posBlockingClauses)
-        println("\t" + bc)
-      println("NegativeBlockingClauses: ")      
-      for (bc <- cons.negBlockingClauses)
-        println("\t" + bc)      
+    res match {
+      case breu.Result.SAT => {
+        println("PositiveBlockingClauses: ")
+        for (bc <- cons.posBlockingClauses)
+          println("\t" + bc)
+        println("NegativeBlockingClauses: ")
+        for (bc <- cons.negBlockingClauses)
+          println("\t" + bc)
+      }
+      case breu.Result.UNSAT => {
+        println("UNSAT")
+      }
+      case breu.Result.UNKNOWN => {
+        println("UNKNOWN")
+      }
     }
+    println("Time: " + runTime/1000000 + " ms")    
   }
 }
