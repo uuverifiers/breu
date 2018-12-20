@@ -19,8 +19,8 @@ class Instance[Term, Fun](
   var negativeBlockingClauses = List() : List[List[(Term, Term)]]  
 
   override def toString = {
-    termMap.toString + "\n" +
-    problem.toString + "\n"
+    val intMap = termMap.map{ case (t, i) => (i, t.toString)}
+    problem.stringWithTermMap(intMap)
   }
 
   def confirmActive = {

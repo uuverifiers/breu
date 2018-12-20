@@ -3,6 +3,11 @@ package breu;
 
 case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
   override def toString = subGoals.mkString(" OR ")
+
+  def stringWithTermMap(intMap : Map[Int, String]) = {
+    subGoals.map(sg => sg.map{ case (s,t) => (intMap(s), intMap(t)) }).mkString(" OR ")
+  }
+
   val terms : Set[Int] = subGoals.flatten.map(x => List(x._1, x._2)).flatten.toSet
   def contains(term : Int) : Boolean = {
     for (g <- subGoals)
@@ -16,6 +21,10 @@ case class Goal(val subGoals : Seq[Seq[(Int, Int)]]) {
 
 case class Eq(val fun : Int, val args : Seq[Int], val res : Int) {
   override def toString = fun + "(" + args.mkString(",") + ")=" + res
+
+  def stringWithTermMap(intMap : Map[Int, String]) = {
+    fun + "(" + args.map(intMap(_)).mkString(",") + ")=" + intMap(res)
+  }
   val terms : Set[Int] = args.toSet + res
   def contains(term : Int) : Boolean = {
     if (res == term)
@@ -110,6 +119,23 @@ case class Problem(
       builder ++= subProblems(p).toString + "\n"
     }
     builder ++= "\\\\-------------\n"
+    builder.toString
+  }
+
+  def stringWithTermMap(termMap : Map[Int, String]) : String = {
+    val builder = new StringBuilder
+    builder ++= "/----DOMAINS----\n"
+    for (t <- terms)
+      builder ++= "| " + termMap(t) + " = {" + domains(t).map(termMap(_)).toList.sorted.mkString(",") + "}" + "\n"
+    builder ++= "| Size: " + size + "\n"
+    builder ++= "| Bits: " + bits + "\n"
+    builder ++= "| Order: " + order.map(termMap(_)) + "\n"
+    for (p <- 0 until size) {
+      builder ++= "+------(" + p + ")------\n"
+      builder ++= "| funEqs: " + subProblems(p).funEqs.map(_.stringWithTermMap(termMap)) + "\n"
+      builder ++= "| goal: " + subProblems(p).goal.stringWithTermMap(termMap) + "\n"
+    }
+    builder ++= "\\---------------\n"
     builder.toString
   }
 

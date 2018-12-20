@@ -54,6 +54,7 @@ object BREUtest {
     val runTime = t1 - t0
     res match {
       case breu.Result.SAT => {
+        println("SAT")
         println("PositiveBlockingClauses: ")
         for (bc <- cons.posBlockingClauses)
           println("\t" + bc)
