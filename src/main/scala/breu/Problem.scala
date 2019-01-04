@@ -129,7 +129,7 @@ case class Problem(
       builder ++= "| " + termMap(t) + " = {" + domains(t).map(termMap(_)).toList.sorted.mkString(",") + "}" + "\n"
     builder ++= "| Size: " + size + "\n"
     builder ++= "| Bits: " + bits + "\n"
-    builder ++= "| Order: " + order.map(termMap(_)) + "\n"
+    builder ++= "| Order: " + order + "\n"
     for (p <- 0 until size) {
       builder ++= "+------(" + p + ")------\n"
       builder ++= "| funEqs: " + subProblems(p).funEqs.map(_.stringWithTermMap(termMap)) + "\n"
