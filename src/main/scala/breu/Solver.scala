@@ -696,22 +696,24 @@ abstract class Solver[Term, Fun](debug : Boolean) {
         (newGoal, newEqs : Seq[Eq])
       }
 
-    val intPosBlockingClauses =
-      (for (bc <- posBlockingClauses) yield {
-        for ((t1,t2) <- bc) yield {
-          (termToInt(t1), termToInt(t2))
-        }
-      })
 
 
-    val intNegBlockingClauses =
-      (for (bc <- negBlockingClauses) yield {
-        for ((t1,t2) <- bc) yield {
-          (termToInt(t1), termToInt(t2))
-        }
-      })    
+    val intPosBlockingClauses = ListBuffer() : ListBuffer[List[(Int, Int)]]
 
-    val problem = intCreateProblem(newDomains, subProblems, intPosBlockingClauses, intNegBlockingClauses)
+    for (bc <- posBlockingClauses) {
+      if (bc.forall{ case (s,t) => (terms contains s) && (terms contains t)})
+        intPosBlockingClauses += bc.map{ case (s,t) => (termToInt(s), termToInt(t)) }.toList
+    }
+
+
+    val intNegBlockingClauses = ListBuffer() : ListBuffer[List[(Int, Int)]]
+
+    for (bc <- negBlockingClauses) {
+      if (bc.forall{ case (s,t) => (terms contains s) && (terms contains t)})
+        intNegBlockingClauses += bc.map{ case (s,t) => (termToInt(s), termToInt(t)) }.toList
+    }    
+
+    val problem = intCreateProblem(newDomains, subProblems, intPosBlockingClauses.toList, intNegBlockingClauses.toList)
 
     new Instance[Term, Fun](curId, this, problem, termToInt.toMap, domains)
   }
