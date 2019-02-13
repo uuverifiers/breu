@@ -76,7 +76,7 @@ class TableSolver[Term, Fun](debug : Boolean = false) extends Solver[Term, Fun](
 
     def addTable(index : Int) = {
       tmpTables(index) = Some(new Table(problem.bits, alloc, gt, solver,
-        problem(index).terms, problem(index).domains,
+        problem(index).terms, problem.domains,
         problem(index).funEqs, ZEROBIT, ONEBIT, problem(index).DQ,
         problem(index).goal.subGoals))
 

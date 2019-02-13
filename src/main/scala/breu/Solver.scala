@@ -611,7 +611,7 @@ abstract class Solver[Term, Fun](debug : Boolean) {
     val order = reorderProblems(filterTerms, filterDomains, filterEqs, filterGoals)
 
     val reorderTerms = (for (i <- order) yield filterTerms(i))
-    val reorderDomains = (for (i <- order) yield filterDomains(i))
+    // val reorderDomains = (for (i <- order) yield filterDomains(i))
     val reorderGoals = (for (i <- order) yield filterGoals(i))
     val reorderEqs =
       (for (i <- order) yield filterEqs(i))
@@ -621,7 +621,7 @@ abstract class Solver[Term, Fun](debug : Boolean) {
 
     val problems =
       for (i <- 0 until problemCount) yield
-        new SubProblem(reorderTerms(i), reorderDomains(i),
+        new SubProblem(reorderTerms(i)
           reorderEqs(i), reorderGoals(i),
           reorderDQ(i), reorderBaseDQ(i))
 

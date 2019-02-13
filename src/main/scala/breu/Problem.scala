@@ -47,7 +47,7 @@ case class Domains(val domains : Map[Int, Set[Int]]) {
 
 case class SubProblem(
   val terms : Seq[Int],
-  val domains : Domains,
+  // val domains : Domains,
   val funEqs : Seq[Eq],
   val goal : Goal,
   val DQ : Disequalities,
@@ -111,7 +111,7 @@ case class Problem(
     for (p <- 0 until size) {
       builder ++= "+--------\n"
       builder ++= "| terms: " + subProblems(p).terms + "\n"
-      builder ++= "| domains: " + subProblems(p).domains + "\n"
+      // builder ++= "| domains: " + subProblems(p).domains + "\n"
       builder ++= "| funEqs: " + subProblems(p).funEqs + "\n"
       builder ++= "| goal: " + subProblems(p).goal + "\n"
       // builder ++= "| DQ: " + subProblems(p).DQ + "\n"

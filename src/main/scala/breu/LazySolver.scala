@@ -1,4 +1,3 @@
-
 package breu;
 
 import org.sat4j.tools.GateTranslator
@@ -52,7 +51,8 @@ class LazySolver[Term, Fun](debug : Boolean = false) extends Solver[Term, Fun](d
 
           def heuristic(dq : (Int, Int)) = {
             val (s, t) = dq
-            cp.domains(s).size
+            0
+            // cp.domains(s).size
           }
 
           // Now we minimize DI to only contain "relevant" inequalities
