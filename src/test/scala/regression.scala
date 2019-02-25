@@ -18,6 +18,8 @@ class Regression extends FunSpec {
   val satSources = new File(getClass.getResource("/sat/").toURI())
   val satFiles = getListOfFiles(satSources, List(".breu"))
 
+  // assert(Tester.testIncremental("/home/ptr/Projects/breu/target/scala-2.12/test-classes/sat/cade.breu", TIMEOUT) == breu.Result.SAT)
+
   describe("SAT") {
     for (f <- satFiles) {
       it(f.getName()) {
@@ -38,16 +40,4 @@ class Regression extends FunSpec {
       }
     }
   }
-
-  val unknownSources = new File(getClass.getResource("/unknown/").toURI())
-  val unknownFiles = getListOfFiles(unknownSources, List(".breu"))
-
-  describe("UNKNOWN") {
-    for (f <- unknownFiles) {
-      it(f.getName()) {
-        val ret = Tester.test(f.toString, TIMEOUT)
-        assert(ret == breu.Result.UNKNOWN)
-      }
-    }
-  }  
 }

@@ -1,202 +1,582 @@
-package breu;
+//TODO: Add unit clauses
 
-import org.sat4j.core._
-import org.sat4j.specs._
-import org.sat4j.minisat._
-import org.sat4j.tools._
-import java.io.FileInputStream
-import java.io.ObjectInputStream
-import java.io.File
-import Timer._
-import scala.collection.mutable.{Map => MMap}
-import scala.collection.mutable.{Set => MSet}
-import scala.collection.mutable.ListBuffer
+// TODO : Proposal, use s, t for terms and ss,tt for integer representations
 
+package breu
 
-//
-//  Allocates bits for the solver
-//
-class Allocator {
-  // Leave room for ONEBIT (1) and ZEROBIT (2)
-  var next = 3
-
-  def reset = {
-    next = 3
-  }
-
-  def alloc(count : Int) = {
-    val ret = next
-    next = next + count
-    ret
-  }
-}
-
+import scala.collection.mutable.{ListBuffer, Map => MMap}
+import org.sat4j.tools.GateTranslator
+import org.sat4j.minisat.SolverFactory
+import org.sat4j.specs.{ISolver, IConstr}
+import org.sat4j.core.VecInt
 
 /**
   * Three different result types
-  * UKNOWN generally indicates an error
+  * UKNOWN generally indicates an error or timeout
   */
 object Result extends Enumeration {
   type Result = Value
   val SAT, UNSAT, UNKNOWN = Value
 }
 
+class TimeoutException(msg : String) extends Exception("TimeoutException: " + msg)
 
-class Stats {
-  val stats = ListBuffer() : ListBuffer[String]
-
-  def addEntry(s : String) = {
-    stats += s
-  }
-
-  def clear = stats.clear
-
-  override def toString = {
-    stats.mkString("\n")
-  }
-}
-
-/*
- * An abstract BREUSolver
- * 
- * Requires solveaux and unsatCore to be defined
- * 
- */
-// TODO: We used to have a timeoutChecker, it now replaced by a fixed timeout.
 //
-// Maybe the other way is preferable, but I have not found a
-// convenient way to abort sat4j. Maybe running one thread which polls
-// the timeoutchecker and then sends and abort to sat4j is possible..
-abstract class Solver[Term, Fun](debug : Boolean) {
+// The new BREU solver.
+//
+// Uses the lazy approach
+//
+// Add terms, eqs and goals, then use push() to save subproblem.
+// Pop to remove latest subproblem (including terms)
+//
+class Solver[Term, Fun] {
 
-  // TODO: Maybe construct better way of keeping track of time?
+  var DEBUG = false
 
+  val DEFAULT_TIMEOUT = 5
+
+  // TODO: This is set upon object creation, perhaps better as argument?
   var START_TIME : Long = System.currentTimeMillis
-  // TODO: Currently we have 1 minute to create problems
-  var MAX_TIME : Long = 60000
+  var MAX_TIME : Long = 0
 
-  type TermDomains = Map[Term, Set[Term]]
-  type TermEq = (Fun, Seq[Term], Term)
-  type TermGoal = Seq[Seq[(Term, Term)]]
+
+  val CONSTRAINTS = ListBuffer() : ListBuffer[(IConstr, String)] 
+  val solver = SolverFactory.newDefault()
+  solver.newVar(1000000);
+  solver.setTimeout(1)
+
+  // TODO: BITS SHOULD BE DYNAMIC...
+  val BITS = 8
+  val maxVars = Math.pow(2, BITS).toInt
+
+  // SPECIAL CASE, teqt(s,s) is constraint s.t. s == termToInt(s)
+  val TEQT = Array.fill[Int](maxVars, maxVars)(-1)
+
+
+  val gt = new GateTranslator(solver)
+
+  def terms() = domains.keys.toList
+  def allTerms() = domains.keys.toList.map(termToInt(_))
+  def intDomains() = domains.map{case (k, v) => termToInt(k) -> v.map(termToInt(_))}
+  def termMap() = termToInt.map(_.swap)
+  def size() = subProblems.length
 
   // Bit manipulation
   val alloc = new Allocator
   val ZEROBIT = 1
-  val ONEBIT = 2    
-  
-  // TODO: Make real bound?
-  val solver = SolverFactory.newDefault()
-  val MAXVAR = 1000000;
-  solver.newVar(MAXVAR);
-  solver.setTimeout(1)
-  val gt = new GateTranslator(solver)
+  val ONEBIT = 2
 
-  val S = new Stats
-  var curId = 0
-  var previousInstance = None : Option[Instance[Term, Fun]]
+  resetSat4j()  
 
-  val positiveBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]
-  val negativeBlockingClauses = ListBuffer() : ListBuffer[List[(Int,Int)]]    
 
-  def getStat(result : breu.Result.Result) : String
+  // Some useful types
+  type Domain = MMap[Term, Set[Term]]
+  type FunApp = (Fun, Seq[Term], Term)
+  type Goal = Seq[(Term, Term)]
+  type UnificationConstraint = List[(Term, Term)]
+  type DisunificationConstraint = List[(Term, Term)]
 
-  def dprint(str : String) =
-    if (debug)
-      print(str)
+  val domains : Domain = MMap()
+  val assignments :  MMap[Int, Seq[Int]] = MMap()
 
-  def dprintln(str : String) =
-    if (debug)
-      println(str)  
+  val curEqs : ListBuffer[FunApp] = ListBuffer()
+  val curGoals : ListBuffer[Goal] = ListBuffer()
+  val curTerms : ListBuffer[Term] = ListBuffer()
+
+  // Tracking the TermMap
+  var nextTermInt = 0
+  val termToInt = MMap() : MMap[Term, Int]
+
+  var nextFunInt = 0
+  val funToInt = MMap() : MMap[Fun, Int]  
+
+  var subProblems = List() : List[SubProblem]
+
+  var constraintStack = List() : List[List[IConstr]]
+  var curConstraints = List() : List[IConstr]
+  var termStack = List() : List[List[Term]]
+  var unificationConstraintsStack = List() : List[List[UnificationConstraint]]
+  var disunificationConstraintsStack = List() : List[List[DisunificationConstraint]]
+
+  var curUnificationConstraints = List() : List[UnificationConstraint]
+  var curDisunificationConstraints = List() : List[DisunificationConstraint]
+
+  var nextDummyPredicate = 0
+  var level = 0
+
+  def genDummyPredicate() : String = {
+    nextDummyPredicate += 1
+    val newPred = "dummy_predicate_" + nextDummyPredicate
+    newPred
+  }
+
+  def restart() = {
+    resetSat4j()
+    subProblems = List()
+    domains.clear
+    curTerms.clear
+    termToInt.clear
+    funToInt.clear
+    nextTermInt = 0
+    nextFunInt = 0
+    termStack = List()
+    unificationConstraintsStack = List()
+    disunificationConstraintsStack = List()
+  }
+
+
+  def resetSat4j() = {
+    solver.reset()
+    alloc.reset
+    val constr1 = solver.addClause(new VecInt(Array(-ZEROBIT)))
+    CONSTRAINTS += ((constr1 , "ZEROBIT"))
+    val constr2 = solver.addClause(new VecInt(Array(ONEBIT)))
+    CONSTRAINTS += ((constr2, "ONEBIT"))
+  }
+
+
+  override def toString() = {
+    val tm = termToInt.map{case (t, i) => (i, t.toString)}.toMap
+    "<<<< BREU PROBLEM >>>\n" + 
+    "  DOMAINS\n" +
+    domains.mkString("\n") + "\n\n" +
+    subProblems.map(_.toTermString(tm)).mkString("\n") + "\n" +
+    (if (unificationConstraintsStack.flatten.length + disunificationConstraintsStack.flatten.length > 0) {
+      "  BLOCKING CONSTRAINTS \n" +
+      " POSITIVE \n" +
+      unificationConstraintsStack.mkString("...") + "\n" +
+      " NEGATIVE \n " +
+      disunificationConstraintsStack.mkString("...")
+    } else {""})
+
+  }
+
+  def internal() = {
+    println("<<< INTERNAL BREU PROBLEM >>>")
+    for (t <- terms().sortBy(termToInt))
+      println("\t" + t + " (" + termToInt(t) + ") [" + assignments(termToInt(t)).mkString(",") + "]: ")
+    println("<<< CONSTRAINTS >>>")
+    for ((c, str) <- CONSTRAINTS; if (c != null))
+      println("\t" + c + " ==> " +  str)
+
+    println("<<< TEQT >>>")
+    for (row <- TEQT) {
+      println(row.mkString(", "))
+    }
+  }
+
+  def toIntString() = {
+    "<<<< BREU PROBLEM >>>\n" + 
+    "  DOMAINS\n" +
+    domains.map{case (t, d) => termToInt(t) + ":\t" + d.map(termToInt(_)).mkString(", ")}.mkString("\n") + "\n" +
+    subProblems.mkString("\n") + "\n"     
+  }
+
+  def checkTO() = {
+    if (MAX_TIME > 0 && MAX_TIME < System.currentTimeMillis - START_TIME)
+      throw new TimeoutException("BREU")
+  }  
 
 
   def satSolve() : Boolean = {
     checkTO()
-    val REM_TIME = MAX_TIME - (System.currentTimeMillis - START_TIME)
-    solver.setTimeoutMs(REM_TIME)
+    if (MAX_TIME > 0) {
+      val REM_TIME = MAX_TIME - (System.currentTimeMillis - START_TIME)
+      solver.setTimeoutMs(REM_TIME)
+    } else {
+      solver.setTimeout(5)
+      // TODO: throw new Exception("No timeout for sat solver...")
+    }
     try {
       solver.isSatisfiable()
     } catch {
-      case e : Exception =>{
-        dprintln("satSolve() timeout!")
-        throw e
+      case te : org.sat4j.specs.TimeoutException => {
+        throw new TimeoutException("sat4j")
       }
     }
   }
 
-  def checkTO() = {
-    val CUR_TIME = System.currentTimeMillis
-    if (CUR_TIME - START_TIME >= MAX_TIME) {
-      dprintln("checkTO() timeout!")
-      throw new org.sat4j.specs.TimeoutException
+  def createDQ(terms : Seq[Int],
+    domains : Domains,
+    eqs : Seq[Eq]) = {
+
+    val size = if (terms.isEmpty) 0 else (terms.max + 1)
+    // Store all disequalities that always must hold!
+
+    val DQ = new Disequalities(size, eqs.toArray, checkTO)
+    for (t <- terms) {
+      val domain = domains(t)
+
+      for (d <- domain) {
+        DQ.cascadeRemove(t, d)
+      }
+
+      for (tt <- terms; if t != tt) {
+        val ttDomain = domains(tt)
+        if (domain exists ttDomain) {
+          DQ.cascadeRemove(t, tt)
+        }
+      }
+    }
+
+    DQ
+  }
+
+  def createBaseDQ(
+    terms : Seq[Int],
+    domains : Domains,
+    eqs : Seq[Eq]) = {
+    val size = if (terms.isEmpty) 0 else (terms.max + 1)
+    // Store all disequalities that always must hold!
+
+    val baseDQ = new Disequalities(size, eqs.toArray, checkTO)
+    for (t <- terms) {
+      val domain = domains(t)
+
+      for (d <- domain) {
+        baseDQ.remove(t, d)
+      }
+
+      for (tt <- terms; if t != tt) {
+        val ttDomain = domains(tt)
+        if (domain exists ttDomain)
+          baseDQ.remove(t, tt)
+      }
+    }
+
+    baseDQ
+  }  
+
+  // Problem creation functions
+  def addVariable(t : Term, d : Set[Term]) = {
+    if (domains.size >= Math.pow(2, BITS).toInt)
+      throw new Exception("Too many terms")
+    if (domains contains t)
+      throw new Exception("Trying to add existing term!")
+
+    // Check that all terms in domain are added
+    val missingTerm = (d - t).find(t => !(domains contains t))
+    if (missingTerm.isDefined)
+      throw new Exception("Term " +  missingTerm.get + " is not added yet.")
+
+    // Add new term to all structures
+    val tt = nextTermInt
+    nextTermInt += 1
+    curTerms.prepend(t)
+    termToInt += t -> tt
+    domains += ((t, d))
+
+
+    if (d.size == 1) {
+      assignments += tt -> termAssIntAux(tt)
+    } else {
+      val termStartBit = alloc.alloc(BITS)
+      val termBits = List.tabulate(BITS)(x => x + termStartBit)
+      assignments += tt -> termBits
+
+      val assBits =
+        (for (s <- d; if termToInt(s) <= tt) yield  {
+          // Enforce idempotency
+          // Either s = t or t != s
+          val ss = termToInt(s)
+          val iddBit = teqt(ss, ss)
+          val neqBit = -termEqIntAux(termBits, ss)
+          val constr = solver.addClause(new VecInt(Array(iddBit, neqBit)))
+          CONSTRAINTS += ((constr, ("IDEMPOTENCY of " + t + " and " + s)))
+          curConstraints = constr :: curConstraints
+
+          termEqIntAux(termBits, ss)
+        }).toArray
+      val constr = solver.addClause(new VecInt(assBits))
+      CONSTRAINTS += ((constr, "DOMAIN of " + t))
+      curConstraints = constr :: curConstraints
     }
   }
 
-  def solve(problem : Problem, timeout : Long, asserted : Boolean = false) = 
-  Timer.measure("Solver.solve") {
+  // TODO: addConstants? with repeated arguments...
+  def addConstant(c : Term) = addVariable(c, Set(c))
+  def addConstants(cs : Term*) = for (c <-cs) addConstant(c)
 
-    START_TIME = System.currentTimeMillis
+  def addFunction(f : FunApp) = {
+    if (!(funToInt contains f._1)) {
+      funToInt += f._1 -> nextFunInt
+      nextFunInt += 1
+    }
+
+    curEqs += f
+  }
+
+  def addGoal(g : Goal) =
+    curGoals += g
+
+  def addUnificationConstraint(constr : List[(Term, Term)]) = {
+    curUnificationConstraints = constr :: curUnificationConstraints 
+  }
+
+  def addDisunificationConstraint(constr : List[(Term, Term)]) = {
+    curDisunificationConstraints = constr :: curDisunificationConstraints 
+  }  
+
+
+  def push(timeout : Long = 0) = {
+    if (DEBUG)
+      println("PUSH(" + level + ")")
     MAX_TIME = timeout
+    level += 1
+    val breuTerms = domains.keys.toList.map(termToInt(_))
+    val breuDomains = breu.Domains((domains.map{case (k, v) => termToInt(k) -> v.map(termToInt(_))}).toMap)
+    val breuEqs : List[breu.Eq] = curEqs.map{case (f, a, r) => breu.Eq(funToInt(f), a.map(termToInt(_)), termToInt(r))}.toList
+    val breuGoals : breu.Goal = Goal(curGoals.map{x => x.map{ case (s,t) => (termToInt(s), termToInt(t)) }})
+    val dq =
+      createDQ(
+        breuTerms,
+        breuDomains,
+        breuEqs)
 
-    val result = 
-    try {
-        // if (problem.solvable == false) {
-        //   println("\tDisequality check")
-        //   // println(problem)
-        //   (breu.Result.UNSAT, None)
-        // } else {
-        solveaux(problem)
-      // }
-    } catch {
-      case e : org.sat4j.specs.ContradictionException => {
-        (breu.Result.UNSAT, None)
-      }
+    val baseDQ =
+      createBaseDQ(
+        breuTerms,
+        breuDomains,
+        breuEqs)
 
-      case e : org.sat4j.specs.TimeoutException => {
-        (breu.Result.UNKNOWN, None)        
+    val newSubProblem =
+      SubProblem(
+        breuTerms,
+        breuEqs,
+        breuGoals,
+        dq,
+        baseDQ)
+
+    subProblems = newSubProblem :: subProblems
+    termStack = curTerms.toList :: termStack
+    constraintStack = curConstraints :: constraintStack
+    
+    unificationConstraintsStack = curUnificationConstraints :: unificationConstraintsStack
+    disunificationConstraintsStack = curDisunificationConstraints :: disunificationConstraintsStack    
+
+    curEqs.clear()
+    curGoals.clear()
+    curTerms.clear()
+    curConstraints = List()
+    curUnificationConstraints = List()
+    curDisunificationConstraints = List()
+  }
+
+  def pop() = {
+    if (DEBUG)
+    println("POP(" + level + ")")
+    level -= 1
+    // TODO: Add assert making sure there are no current added stuff (not pushed)
+    subProblems = subProblems.tail
+
+    // Removing all traces of term t
+    for (t <- termStack.head) {
+      val remTerm = termToInt(t)
+      for (i <- 0 until TEQT.length) {
+        // TODO: This could be reduced to upper triangle..
+        TEQT(i)(remTerm) = -1
+        TEQT(remTerm)(i) = -1
       }
+      nextTermInt -= 1
+      assert(termToInt(t) == nextTermInt)
+
+      assignments -= remTerm
+      domains -= t      
+      termToInt -= t
     }
+    termStack = termStack.tail
 
-    if (asserted) {
-      result match {
-        case (breu.Result.SAT, Some(model)) => {
-          if (!problem.verifySolution(model)) {
-            throw new Exception("False SAT")
-          } else {
-            // println("\t\tSAT asserted")
-            (breu.Result.SAT, Some(model))
+    for (c <- constraintStack.head) {
+      if (c != null) {
+        solver.removeConstr(c)
+        CONSTRAINTS -= CONSTRAINTS.find(_._1 == c).get
+      } 
+    }
+    constraintStack = constraintStack.tail
+    unificationConstraintsStack = unificationConstraintsStack.tail
+    disunificationConstraintsStack = disunificationConstraintsStack.tail
+  }
+
+  def clear() : Unit = {
+    if (!subProblems.isEmpty) {
+      pop()
+      clear()
+    }
+  }
+
+
+  // State
+  // var subProblems = 0
+
+  // Auxilliary information from solvers
+  // var posBlockingClauses = List() : List[List[(Term, Term)]]
+  // var negBlockingClauses = List() : List[List[(Term, Term)]]  
+  var model = None : Option[Map[Int,Int]]
+
+  // Solve the  problem by:
+  // (1) Generate a random assignments A
+  // (2) Check if A is a solution to the problem
+  // (2a) if NO, go to (3)
+  // (2b) if YES, terminate with A
+  // (3) Generate blocking clause B that excludes A
+  // (4) Add B to the constraints and generate new assignment A'
+  // (5) Let A = A' and go to (2)
+  def solve(timeout : Long = 0) : breu.Result.Result =
+    Timer.measure("LazySolver.solveaux") {
+      MAX_TIME = timeout
+
+      // Used to store what bits are equivalent to term equal term
+      // If we do not have dense terms we have to take max instead of length?
+
+
+      // Keeps track whether a subproblem has triggered UNSAT
+      val blockingProblem = Array.ofDim[Boolean](subProblems.length)
+
+      def handleBlockingProblem(cp : SubProblem, solution : Map[Int, Int]) =
+        Timer.measure("handleBlockingProblem") {
+          // val DQ = new Disequalities(cp.DQ)
+          val DQ = new Disequalities(cp.terms.max+1, cp.funEqs.toArray, checkTO)
+
+          // Could we replace this by just doing cascade-remove on the assignments?
+          val uf = Util.BreunionFind(cp.terms, List(), solution.toList)
+
+          // TODO: Can we change this to if (s < t) ...
+          for (s <- cp.terms; t <- cp.terms;
+            if (s <= t); if (uf(s) == uf(t))) {
+            DQ.cascadeRemove(s, t)
+          }
+
+          def heuristic(dq : (Int, Int)) = {
+            val (s, t) = dq
+            // intDomains()(s).size
+            0
+          }
+
+          // Now we minimize DI to only contain "relevant" inequalities
+          DQ.minimise(cp.terms, cp.goal.subGoals, heuristic)
+
+
+          // Remove all "base" inequalities, since they will always be there
+          val ineqs = DQ.inequalities(cp.terms)
+          val finalDQ = for ((s,t) <- ineqs; if cp.baseDQ(s, t)) yield (s, t)
+
+          assert(!DQ.satisfies(cp.goal.subGoals), "Minimization failed")
+
+          // TODO: Maybe we can do this more efficient
+          val blockingClause =
+            (for ((s,t) <- finalDQ) yield {
+              teqt(s, t)
+            }).toArray
+
+          if (finalDQ.length == 1) {
+            val (s,t) = finalDQ(0)
+            // unitClauses += ((s,t))
+          }
+
+          try {
+            // positiveBlockingClauses += finalDQ.toList            
+            val constr = solver.addClause(new VecInt(blockingClause))
+            CONSTRAINTS += ((constr, "BLOCKING CLAUSE: " + finalDQ.mkString(" v ")))
+            curConstraints = constr :: curConstraints
+            // bcCount += 1
+            false
+          } catch {
+            case e : org.sat4j.specs.ContradictionException => {
+              true
+            }
           }
         }
-        case (breu.Result.UNSAT, _) => {
-          // println("\t\tUNSAT *not* asserted")
-          (breu.Result.UNSAT, None)
+
+      // If all problems are SAT or one problem is infeasible, we are done
+      var allSat = false
+      var infeasible = false
+      var candidate = Map() : Map[Int, Int]
+
+      // Check the "hardest" problem first!
+      var problemOrder = List.tabulate(size())(x => x)
+
+
+      // Add given blocking clauses
+      for (uc <- unificationConstraintsStack.flatten) {
+        val blockingClause =
+          (for ((ss,tt) <- uc) yield {
+            val (s,t) = (termToInt(ss), termToInt(tt))
+            teqt(s, t)
+          }).toArray
+
+        try {
+          // positiveBlockingClauses += bc.toList
+          val constr = solver.addClause(new VecInt(blockingClause))
+          CONSTRAINTS += ((constr, "GIVEN BLOCKING CLAUSE: " + uc.mkString(" v ")))
+          curConstraints = constr :: curConstraints
+          // bcCount += 1
+        } catch {
+          case e : org.sat4j.specs.ContradictionException => {
+            throw new Exception("Blocking Clauses are Contradictory")
+          }
         }
-        case _ => throw new Exception("Strange result from solve!")
       }
-    } else {
-      result
+
+      for (dc <- disunificationConstraintsStack.flatten) {
+        val blockingClause =
+          (for ((ss,tt) <- dc) yield {
+            val (s,t) = (termToInt(ss), termToInt(tt))
+            -teqt(s, t)
+          }).toArray
+
+        try {
+          // negativeBlockingClauses += bc.toList
+          val constr = solver.addClause(new VecInt(blockingClause))
+          CONSTRAINTS += ((constr, "GIVEN (NEG) BLOCKING CLAUSE: " + dc.mkString(" ... ")))          
+          curConstraints = constr :: curConstraints
+          // bcCount += 1
+        } catch {
+          case e : org.sat4j.specs.ContradictionException => {
+            throw e
+            // throw new Exception("Blocking Clauses are Contradictory")
+          }
+        }
+      }      
+
+      var iterations = 0
+      // (1) Generate a random assignments A
+      while (!infeasible && !allSat && satSolve()) {
+        iterations += 1
+        checkTO()
+        Timer.measure("LazySolver.assignmentsToSolution)") {
+          candidate = assignmentsToSolution(assignments.toMap)
+        }
+
+        
+        // (2) Check if A is a solution to the problem
+        testSolution(candidate) match {
+          // (2a) if NO, go to (3)
+          case Some(p) => {
+            blockingProblem(p) = true
+            // (3) Generate blocking clause B that excludes A
+            // (4) Add B to the constraints and generate new assignment A'
+            // (5) Let A = A' and go to (2)
+            if (handleBlockingProblem(subProblems(p), candidate)) {
+              infeasible = true
+            }
+            problemOrder = p::problemOrder.filter(_ != p)
+          }
+
+          // (2b) if YES, terminate with A
+          case None => allSat = true
+        }
+      }
+
+
+      if (allSat) {
+        model = Some(candidate)
+        breu.Result.SAT
+      } else {
+        // lastUnsatCore =
+        //   (for (i <- 0 until size(); if (blockingProblem(i))) yield i)
+        breu.Result.UNSAT
+      }
     }
-  }
-
-  def unsatCore(problem : Problem, timeout : Int) = {
-    val core =
-      unsatCoreAux(problem, timeout)
-    assert(!core.isEmpty)
-    (for (p <- core) yield (problem.order(p)))
-  }
-
-  // Asbtract functions
-  protected def solveaux(problem : Problem) : 
-      (Result.Result, Option[Map[Int, Int]])
-
-  def unsatCoreAux(problem : Problem, timeout : Int) : Seq[Int]
-
-  def reset = {
-    solver.reset()
-    alloc.reset
-    solver.addClause(new VecInt(Array(-ZEROBIT)))
-    solver.addClause(new VecInt(Array(ONEBIT)))
-    S.clear
-  }
 
   def assignmentsToSolution[Term](assignments : Map[Int, Seq[Int]]) = {
     // If bit B is true, bitArray(bitMap(B)) should be true
@@ -223,6 +603,7 @@ abstract class Solver[Term, Fun](debug : Boolean) {
         term -> newResult
       })    
 
+
     for (i <- solver.model) {
       val newVal = i >= 0
       for (b <- bitMap.getOrElse(Math.abs(i), List()))
@@ -241,37 +622,8 @@ abstract class Solver[Term, Fun](debug : Boolean) {
     }
 
     (for (t <- assignments.keys) yield t -> bitToInt2(resultMap(t))).toMap
-  }
+  }  
 
-  // def verifySolution(
-  //   terms : Seq[Int],
-  //   assignment : Map[Int,Int],
-  //   eqs : Seq[Eq],
-  //   goal : Goal)
-  //     : Boolean = {
-
-  //   val uf = Util.BreunionFind(terms, eqs, assignment.toList)
-
-  //   var satisfiable = false
-
-  //   for (subGoal <- goal.subGoals) {
-  //     var subGoalSat = true
-
-  //     var allPairsTrue = true
-  //     for ((s,t) <- subGoal) {
-  //       if (uf(s) != uf(t)) {
-  //         allPairsTrue = false
-  //       }
-
-  //       if (!allPairsTrue)
-  //         subGoalSat = false
-  //     }
-  //     if (subGoalSat) {
-  //       satisfiable = true
-  //     }
-  //   }
-  //   satisfiable
-  // }
 
   def bitToInt(bits : Seq[Int]) : Int = {
     var curMul = 1
@@ -284,10 +636,11 @@ abstract class Solver[Term, Fun](debug : Boolean) {
     curVal
   }
 
-  def termAssIntAux(i : Int, bits : Int) = {
+  // Converts an integer to a bit representation using "bits" bits
+  def termAssIntAux(i : Int) = {
     var curVal = i
 
-    for (b <- 0 until bits) yield {
+    for (b <- 0 until BITS) yield {
       if (curVal % 2 == 1) {
         curVal -= 1
         curVal /= 2
@@ -299,6 +652,8 @@ abstract class Solver[Term, Fun](debug : Boolean) {
     }
   }
 
+
+  // Makes a bit eqBit <=> int(bitList) = i
   def termEqIntAux(bitList : Seq[Int], i : Int) : Int = {
     var curVal = i
 
@@ -345,382 +700,111 @@ abstract class Solver[Term, Fun](debug : Boolean) {
     eqBit
   }
 
-  def createAssignments(problem : Problem) : Map[Int, Seq[Int]] = {
-    // Connects each term with its list of bits
-    // (e.g. assignment(a) = List(3,4,5))
-    val terms = problem.terms
-
-    var assignments = Map() : Map[Int, Seq[Int]]
-    assignments =
-      (for (t <- terms) yield {
-        (t,
-          (if (problem.domains(t).size == 1) {
-            termAssIntAux(problem.domains(t).toList(0), problem.bits)
-          } else {
-            val termStartBit = alloc.alloc(problem.bits)
-            val termBits = List.tabulate(problem.bits)(x => x + termStartBit)
-            val assBits =
-              (for (tt <- problem.domains(t); if tt <= t) yield  {
-                termEqIntAux(termBits, tt)
-              }).toArray
-            solver.addClause(new VecInt(assBits))
-            termBits}))}).toMap
-
-    // Enforce idempotency
-    for (t <- terms) {
-      for (tt <- problem.domains(t); if tt <= t) {
-        // Either tt = tt or t != tt
-        val iddBit = termEqIntAux(assignments(tt), tt)
-        val neqBit = -termEqIntAux(assignments(t), tt)
-        solver.addClause(new VecInt(Array(iddBit, neqBit)))
-      }
+  def teqt(s : Int, t : Int) : Int = {
+    if (TEQT(s min t)(s max t) == -1) {
+      TEQT(s min t)(s max t) =
+        if (s == t)
+          termEqIntAux(assignments(s), s)
+        else
+          termEqTermAux(assignments(s), assignments(t))
     }
-    assignments
-  }
-
-  def reorderProblems(terms : Seq[Seq[Int]], domains : Seq[Domains],
-    eqs : Seq[Seq[Eq]], goals : Seq[Goal]) : Seq[Int] = {
-    val count = goals.length
-
-    // 
-    // Order by goals length (Increasing)
-    //
-    // val order  =
-    //   (for (i <- 0 until count) yield
-    //     (i, goals(i).length)).sortBy(_._2).map(_._1)
-
-    // 
-    // Order by goals length (Decreasing)
-    //
-    // BEST SO FAR?
-    //
-
-    val order  =
-      (for (i <- 0 until count) yield
-        (i, goals(i).subGoals.length)).sortBy(_._2).map(_._1).reverse
-
-    //
-    // Order by equation count (Increasing)
-    //
-    // val order = 
-    //   (for (i <- 0 until count) yield
-    //     (i, eqs(i).length)).sortBy(_._2).map(_._1).reverse
-
-    //
-    // Order by total domain size (Increasing)
-    //
-    // val order = 
-    //   (for (i <- 0 until count) yield
-    //     (i, ((for ((t, d) <- domains(i)) yield d.size).sum))).sortBy(_._2).map(_._1)
-
-    //
-    // Order by term count (Increasing)
-    //
-    // val order = 
-    //   (for (i <- 0 until count) yield
-    //     (i, terms(i).length)).sortBy(_._2).map(_._1)
-
-
-    order
-  }
-
-  def createDQ(terms : Seq[Int],
-    domains : Domains,
-    eqs : Seq[Eq]) = {
-
-    val size = if (terms.isEmpty) 0 else (terms.max + 1)
-    // Store all disequalities that always must hold!
-
-    val DQ = new Disequalities(size, eqs.toArray, checkTO)
-    for (t <- terms) {
-      val domain = domains(t)
-
-      for (d <- domain) {
-        DQ.cascadeRemove(t, d)
-      }
-
-      for (tt <- terms; if t != tt) {
-        val ttDomain = domains(tt)
-        if (domain exists ttDomain) {
-          DQ.cascadeRemove(t, tt)
-        }
-      }
-   }
-
-    DQ
-  }
-
-  def createBaseDQ(
-    terms : Seq[Int],
-    domains : Domains,
-    eqs : Seq[Eq]) = {
-    val size = if (terms.isEmpty) 0 else (terms.max + 1)
-    // Store all disequalities that always must hold!
-
-    val baseDQ = new Disequalities(size, eqs.toArray, checkTO)
-    for (t <- terms) {
-      val domain = domains(t)
-
-      for (d <- domain) {
-        baseDQ.remove(t, d)
-      }
-
-      for (tt <- terms; if t != tt) {
-        val ttDomain = domains(tt)
-        if (domain exists ttDomain)
-          baseDQ.remove(t, tt)
-      }
-    }
-
-    baseDQ
-  }
-
-  private def extractTerms(domains : Map[Term, Set[Term]],
-    eqs : Seq[TermEq],
-    goals : Seq[Seq[(Term,Term)]]) = {
-
-    val termSet = MSet() : MSet[Term]
-    for ((_, d) <- domains)
-      for (t <- d)
-        termSet += t
-    for ((s,t) <- goals.flatten) {
-      termSet += s
-      termSet += t
-    }
-    for ((_, args, r) <- eqs) {
-      for (t <- args)
-        termSet += t
-      termSet += r
-    }
-    
-    termSet.toSet
-  }
-
-  private def createTermMapping(
-    terms : Seq[Term],
-    domains : Map[Term, Set[Term]])
-      : (Map[Term, Int], Map[Int, Term]) = {
-    // Convert to Int representation
-    val termToInt = MMap() : MMap[Term, Int]
-    val intToTerm = MMap() : MMap[Int, Term]
-    var assigned = 0
-
-    while (assigned < terms.length) {
-      for (t <- terms) {
-        if (!(termToInt contains t)) {
-          // Assign term after its domain is assigned (well-ordering)
-          val d = domains.getOrElse(t, Set()).filter(_ != t)
-          val dass = d.map(termToInt contains _)
-          if (dass.forall(_ == true)) {
-            termToInt += (t -> assigned)
-            intToTerm += (assigned -> t)
-            assigned += 1
-          }
-        }
-      }
-    }
-
-    (termToInt.toMap, intToTerm.toMap)
+    TEQT(s min t)(s max t)
   }
 
 
-  private def createFunMapping(
-    eqs : Seq[Seq[TermEq]]
-  ) : Map[Fun, Int] = {
-    var assigned = 0
-    var funMap = Map() : Map[Fun, Int]
-    for ((f, _, _) <- eqs.flatten) {
-      if (!(funMap contains f)) {
-        funMap += (f -> assigned)
-        assigned += 1
-      }
-    }
-    funMap
-  }
+  // def createAssignments() : Map[Int, Seq[Int]] = {
+  //   // Connects each term with its list of bits
+  //   // (e.g. assignment(a) = List(3,4,5))
+  //   val terms = allTerms()
+  //   val idomains = intDomains()
 
-  // Create a problem from internal (Integer) representation
-  def intCreateProblem(
-    domains : Domains,
-    subProblems : Seq[(Goal, Seq[Eq])],
-    intPosBlockingClauses : Seq[Seq[(Int, Int)]],
-    intNegBlockingClauses : Seq[Seq[(Int, Int)]]) : Problem = {
+  //   var assignments = Map() : Map[Int, Seq[Int]]
+  //   assignments =
+  //     (for (t <- terms) yield {
+  //       (t,
+  //         (if (idomains(t).size == 1) {
+  //           val r = termAssIntAux(idomains(t).toList(0))
+  //           r
+  //         } else {
+  //           val termStartBit = alloc.alloc(BITS)
+  //           val termBits = List.tabulate(BITS)(x => x + termStartBit)
+  //           val assBits =
+  //             (for (tt <- idomains(t); if tt <= t) yield  {
+  //               termEqIntAux(termBits, tt)
+  //             }).toArray
+  //           val constr = solver.addClause(new VecInt(assBits))
+  //           CONSTRAINTS += ((constr, " " + finalDQ.mkString(" v ")))
+  //           curConstraints = constr :: curConstraints
+  //           termBits}))}).toMap
 
-    val problemCount = subProblems.length
-    val allTerms = (domains.terms ++ subProblems.map{
-      case (goal, eqs) => goal.terms ++ eqs.map(_.terms).flatten
-    }.flatten).toList
-    val bits = Util.binlog(allTerms.length)
-    val arr = Array.ofDim[Int](allTerms.length, allTerms.length)
+  //   // Enforce idempotency
+  //   for (t <- terms) {
+  //     for (tt <- idomains(t); if tt <= t) {
+  //       // Either tt = tt or t != tt
+  //       val iddBit = termEqIntAux(assignments(tt), tt)
+  //       val neqBit = -termEqIntAux(assignments(t), tt)
+  //       val constr = solver.addClause(new VecInt(Array(iddBit, neqBit)))
+  //       curConstraints = constr :: curConstraints
+  //     }
+  //   }
+  //   assignments
+  // }
+  
 
-    val ffs =
-      (for (p <- 0 until problemCount) yield {
-        val (goals, eqs) = subProblems(p)
-        // Filter terms per table
-        def isUsed(term : Int, funs : Seq[Eq], goals : Goal) : Boolean = {
-          goals.contains(term) || funs.exists(_.contains(term))
-        }
-
-        val ff = eqs
-        val tmpFt = ListBuffer() : ListBuffer[Int]
-        for (t <- (allTerms.filter(x => isUsed(x, ff, goals))))
-          tmpFt += t
-
-        // We have to add all terms that are in the domains of ft
-        var ftChanged = true
-        while (ftChanged) {
-          ftChanged = false
-          for (t <- tmpFt) {
-            for (tt <- domains(t)) {
-              if (!(tmpFt contains tt)) {
-                tmpFt += tt
-                ftChanged = true
-              }
-            }
-          }
-        }
-
-        val ft = tmpFt
-
-        val fd =
-          Domains((for ((t, d) <- domains.domains; if (ft contains t)) yield {
-            (t, d.filter(x => ft contains x))
-          }).toMap)
-        val fg = goals
-        (ff, ft, fd, fg)
-      }) : Seq[(Seq[Eq], Seq[Int], Domains, Goal)]
-
-    val filterTerms = for ((_, ft, _, _) <- ffs) yield ft
-    val filterDomains = for ((_, _, fd, _) <- ffs) yield fd
-    val filterEqs = for ((ff, _, _, _) <- ffs) yield ff
-    val filterGoals = for ((_, _, _, fg) <- ffs) yield fg
-
-    val DQ =
-      for (p <- 0 until problemCount)
-      yield createDQ(
-        filterTerms(p),
-        filterDomains(p),
-        filterEqs(p))
-
-    val baseDQ =
-      for (p <- 0 until problemCount)
-      yield createBaseDQ(
-        filterTerms(p),
-        filterDomains(p),
-        filterEqs(p))
-
-    val order = reorderProblems(filterTerms, filterDomains, filterEqs, filterGoals)
-
-    val reorderTerms = (for (i <- order) yield filterTerms(i))
-    // val reorderDomains = (for (i <- order) yield filterDomains(i))
-    val reorderGoals = (for (i <- order) yield filterGoals(i))
-    val reorderEqs =
-      (for (i <- order) yield filterEqs(i))
-    val reorderDQ = (for (i <- order) yield DQ(i))
-    val reorderBaseDQ = (for (i <- order) yield baseDQ(i))
-
-
-    val problems =
-      for (i <- 0 until problemCount) yield
-        new SubProblem(reorderTerms(i)
-          reorderEqs(i), reorderGoals(i),
-          reorderDQ(i), reorderBaseDQ(i))
-
-    new Problem(
-      allTerms,
-      domains,
-      bits,
-      order,
-      problems,
-      intPosBlockingClauses,
-      intNegBlockingClauses)
+  def testSolution(solution : Map [Int, Int]) = {
+    val idx = subProblems.indexWhere(!_.verifySolution(solution))
+    if (idx == -1) None
+    else Some(idx)
   }
 
 
-  // TODO: No timeouts for creating problems
-  def createProblem(
-    domains : TermDomains,
-    goals : Seq[TermGoal],
-    eqs : Seq[Seq[TermEq]],
-    posBlockingClauses : Seq[Seq[(Term, Term)]],
-    negBlockingClauses : Seq[Seq[(Term, Term)]]) : Instance[Term, Fun] = {
+  //
+  //
+  //   Functions that returns things as terms
+  //
+  //
 
-    curId += 1
-    val problemCount = goals.length
-    val pairs = for (i <- 0 until problemCount) yield { (goals(i), eqs(i)) }
-
-    //
-    // Convert to Int representation
-    //
-
-    // TODO: Maybe check that terms in eqs and goals actually have domains?
-    val termSets = 
-      for (p <- 0 until problemCount) yield
-        extractTerms(domains, eqs(p), goals(p))
-
-    val allTerms = (termSets.:\(Set() : Set[Term])(_ ++ _)).toList
-    val terms = for (p <- 0 until problemCount) yield allTerms
-    val bits = Util.binlog(allTerms.length)
-
-
-    val (termToInt, intToTerm) = createTermMapping(allTerms, domains)
-    val funMap = createFunMapping(eqs)
-    val intAllTerms = allTerms.map(termToInt)
-
-    // TODO: Maybe add option for this?: Each term is added to its own domain
-    // TODO: http://stackoverflow.com/questions/1715681/scala-2-8-breakout/1716558#1716558
-    val newDomains = 
-      Domains((for (t <- allTerms) yield {
-        val oldDomain = domains.getOrElse(t, Set(t))
-        (termToInt(t) -> oldDomain.map(termToInt))
-      }).toMap)
-
-
-    // 
-    // Convert each subproblem
-    // + to integer representation
-
-    // Conversion might introduce new terms, nextTerm shows next available term
-    // Increasing by one allocates one new term (which is added to domain, etc.)
-    var nextTerm = if (intAllTerms.length > 0) intAllTerms.max + 1 else 0
-
-    val subProblems = 
-      for ((goals, funs) <- pairs) yield {
-
-
-        val extraEqs = ListBuffer() : ListBuffer[Eq]
-        val extraSubGoals = ListBuffer() : ListBuffer[Seq[(Int, Int)]]
-
-        val newGoal  = Goal((for (pairs <- goals) yield for ((s, t) <- pairs) yield (termToInt(s), termToInt(t))) ++ extraSubGoals)
-        val newEqs = (for ((f, args, r) <- funs) yield Eq(funMap(f), args.map(termToInt), termToInt(r))) ++ extraEqs
-
-        (newGoal, newEqs : Seq[Eq])
-      }
-
-
-
-    val intPosBlockingClauses = ListBuffer() : ListBuffer[List[(Int, Int)]]
-
-    for (bc <- posBlockingClauses) {
-      if (bc.forall{ case (s,t) => (terms contains s) && (terms contains t)})
-        intPosBlockingClauses += bc.map{ case (s,t) => (termToInt(s), termToInt(t)) }.toList
-    }
-
-
-    val intNegBlockingClauses = ListBuffer() : ListBuffer[List[(Int, Int)]]
-
-    for (bc <- negBlockingClauses) {
-      if (bc.forall{ case (s,t) => (terms contains s) && (terms contains t)})
-        intNegBlockingClauses += bc.map{ case (s,t) => (termToInt(s), termToInt(t)) }.toList
-    }    
-
-    val problem = intCreateProblem(newDomains, subProblems, intPosBlockingClauses.toList, intNegBlockingClauses.toList)
-
-    new Instance[Term, Fun](curId, this, problem, termToInt.toMap, domains)
+  def getAddedTerms() : Set[Term] = {
+    domains.keys.toSet
   }
 
-  def createProblem(
-    domains : TermDomains,
-    goals : Seq[TermGoal],
-    eqs : Seq[Seq[TermEq]]) : Instance[Term, Fun] = createProblem(domains, goals, eqs, List(), List())
+
+  def getBlockingClauses() : (List[List[(Term, Term)]], List[List[(Term, Term)]]) = {
+    // val tm = termToInt.map(_.swap)
+    // val posBC =
+    //   (for (bc <- positiveBlockingClauses) yield {
+    //     (for ((s, t) <- bc) yield {
+    //       (tm(s), tm(t))
+    //     }).toList
+    //   }).toList
+
+    // val negBC =
+    //   (for (bc <- negativeBlockingClauses) yield {
+    //     (for ((s, t) <- bc) yield {
+    //       (tm(s), tm(t))
+    //     }).toList
+    //   }).toList
+
+    // (posBC, negBC)
+    (List(), List())
+  }
+
+  def getModel() : Map[Term, Term] = {
+    val tm = termToInt.map(_.swap)
+
+   (for ((s, t) <- model.get) yield (tm(s) -> tm(t))).toMap
+  }
+
+//   override def getStat(result : breu.Result.Result) = 
+//     "LAZY>RESULT:" + result + ",BLOCKINGCLAUSES:" + bcCount
+
+//   def unsatCoreAux(problem : Problem, timeout : Int) = lastUnsatCore
+
+//   // def unitBlockingClauses = unitClauses
+//   // def blockingClauses = savedBlockingClauses
+
+//   // We automatically calculate unsatCore
+//   var lastUnsatCore = List() : Seq[Int]
+//   var unitClauses = ListBuffer() : ListBuffer[(Int, Int)]
+//   var bcCount = 0
 }
-

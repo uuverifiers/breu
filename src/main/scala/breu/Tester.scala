@@ -1,25 +1,18 @@
 package breu;
 
 object Tester {
-
-  def checkTO() = {
-  }
-
   def test(file : String, timeout : Long) : breu.Result.Value = {
-    val cons = new breu.Constructor[String,String]()
+    val solver = new breu.Solver[String, String]()
 
     val input = io.Source.fromFile(file).getLines.toList
+    var problem = 0
 
-    var section = ""
-
-    val dPattern = "(.*)=(.*)".r
-    val fPattern = "(.*)\\((.*)\\)=(.*)".r
-    val gPattern = "(.*=\\?.*\\|?)+".r    
+    val gPattern = "(.*=\\?.*\\|?)+".r
+    val fPattern = "(.*)\\((.*)\\)=(.*)".r    
+    val dPattern = "(.*)=(.*)".r    
 
     for (l <- input) {
       l.trim() match {
-        case dPattern(t,d) if section == "domains" => cons.addDomain(t, d.split(",").toSet)
-        case fPattern(f,ts,t) if section == "problem" => cons.addFunction((f, ts.split(","), t))
         case gPattern(sgoals) => {
           val sgPattern = "(.*)=\\?(.*)".r
           val sgs = 
@@ -28,16 +21,37 @@ object Tester {
                 case sgPattern(lhs, rhs) => (lhs.toString, rhs.toString)
               }
             }
-          cons.addGoal(sgs.toList)
+          solver.addGoal(sgs.toList)
+        }        
+
+        case fPattern(f,"",t) => {
+          solver.addFunction((f, List(), t))
         }
-        case "DOMAINS" => section = "domains"
+
+        case fPattern(f,ts,t) => {
+          solver.addFunction((f, ts.split(","), t))
+        }          
+
+        case dPattern(t,d) => {
+          solver.addVariable(t, d.split(",").toSet)
+        }          
+
         case "PROBLEM" => {
-          section = "problem"
-          cons.newSubproblem()
+          if (problem > 0)
+            solver.push()
+          problem += 1
         }
+        case "DOMAINS" => {}
       }
     }
 
-    cons.solveLazy(timeout)
-  }
+    solver.push()
+    try {
+      solver.solve(timeout)
+    } catch {
+      case te : TimeoutException =>{
+        breu.Result.UNKNOWN
+      }
+    }
+  }  
 }
