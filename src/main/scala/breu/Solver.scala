@@ -111,6 +111,7 @@ class Solver[Term, Fun] {
   }
 
   def restart() = {
+    level = 0
     resetSat4j()
     subProblems = List()
     domains.clear
@@ -122,6 +123,10 @@ class Solver[Term, Fun] {
     termStack = List()
     unificationConstraintsStack = List()
     disunificationConstraintsStack = List()
+    constraintStack = List()
+    assignments.clear
+    for (i <- 0 until Math.pow(2, BITS).toInt; j <- 0 until Math.pow(2, BITS).toInt)
+      TEQT(i)(j) = -1
   }
 
 
@@ -322,6 +327,7 @@ class Solver[Term, Fun] {
     if (DEBUG)
       println("PUSH(" + level + ")")
     MAX_TIME = timeout
+    START_TIME = System.currentTimeMillis
     level += 1
     val breuTerms = domains.keys.toList.map(termToInt(_))
     val breuDomains = breu.Domains((domains.map{case (k, v) => termToInt(k) -> v.map(termToInt(_))}).toMap)
@@ -424,6 +430,7 @@ class Solver[Term, Fun] {
   def solve(timeout : Long = 0) : breu.Result.Result =
     Timer.measure("LazySolver.solveaux") {
       MAX_TIME = timeout
+      START_TIME = System.currentTimeMillis
 
       // Used to store what bits are equivalent to term equal term
       // If we do not have dense terms we have to take max instead of length?
