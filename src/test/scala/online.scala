@@ -21,7 +21,7 @@ class Online extends FunSpec {
       val Y = "Y"
       val Z = "Z"
 
-      val solver = new Solver[String, String]()
+      val solver = new Solver[String, String](8)
 
       // println("\t\t ADDING a,b,c, and X")
       solver.addConstants(a, b, c)
@@ -65,7 +65,7 @@ class Online extends FunSpec {
       val c2 = "c2"
       val x3 = "x3"
 
-      val solver = new Solver[String, String]()
+      val solver = new Solver[String, String](8)
 
       solver.addConstants(c0, c1, c2)
       solver.addVariable(x3, Set(c0, c1, c2, x3))
@@ -92,7 +92,7 @@ class Online extends FunSpec {
       val Y = "Y"
       val Z = "Z"
 
-      val solver = new Solver[String, String]()      
+      val solver = new Solver[String, String](8)      
 
       def base() = {
         solver.addVariable(a, Set(a))

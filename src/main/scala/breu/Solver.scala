@@ -29,7 +29,7 @@ class TimeoutException(msg : String) extends Exception("TimeoutException: " + ms
 // Add terms, eqs and goals, then use push() to save subproblem.
 // Pop to remove latest subproblem (including terms)
 //
-class Solver[Term, Fun] {
+class Solver[Term, Fun](val BITS : Int) {
 
   var DEBUG = false
 
@@ -45,8 +45,6 @@ class Solver[Term, Fun] {
   solver.newVar(1000000);
   solver.setTimeout(1)
 
-  // TODO: BITS SHOULD BE DYNAMIC...
-  val BITS = 8
   val maxVars = Math.pow(2, BITS).toInt
 
   // SPECIAL CASE, teqt(s,s) is constraint s.t. s == termToInt(s)
@@ -116,6 +114,7 @@ class Solver[Term, Fun] {
     subProblems = List()
     domains.clear
     curTerms.clear
+    curConstraints = List()
     termToInt.clear
     funToInt.clear
     nextTermInt = 0
@@ -370,7 +369,7 @@ class Solver[Term, Fun] {
 
   def pop() = {
     if (DEBUG)
-    println("POP(" + level + ")")
+      println("POP(" + level + ")")
     level -= 1
     // TODO: Add assert making sure there are no current added stuff (not pushed)
     subProblems = subProblems.tail

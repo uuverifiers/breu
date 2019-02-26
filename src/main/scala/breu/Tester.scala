@@ -2,7 +2,8 @@ package breu;
 
 object Tester {
   def test(file : String, timeout : Long) : breu.Result.Value = {
-    val solver = new breu.Solver[String, String]()
+    // TODO: How many bits?
+    val solver = new breu.Solver[String, String](8)
 
     val input = io.Source.fromFile(file).getLines.toList
     var problem = 0
