@@ -40,7 +40,27 @@ class Solver[Term, Fun](val BITS : Int) {
   var MAX_TIME : Long = 0
 
 
-  val CONSTRAINTS = ListBuffer() : ListBuffer[(IConstr, String)] 
+  val CONSTRAINTS = ListBuffer() : ListBuffer[(IConstr, String)]
+
+  def addConstraint(constr : IConstr, expl : String, test : Boolean = false) = {
+    // if (test && constr != null)
+
+    assert(curConstraints.length + constraintStack.map(_.length).sum == CONSTRAINTS.length)
+
+    if (constr != null) {
+      CONSTRAINTS += ((constr , expl))
+      curConstraints = constr :: curConstraints
+    }
+
+    assert(curConstraints.length + constraintStack.map(_.length).sum == CONSTRAINTS.length)        
+  }
+
+  def remConstraint(constr : IConstr) = {
+    val before = CONSTRAINTS.length
+    CONSTRAINTS -= CONSTRAINTS.find(_._1 == constr).get
+    val after = CONSTRAINTS.length
+    assert(before-1 == after)
+  }
   val solver = SolverFactory.newDefault()
   solver.newVar(1000000);
   solver.setTimeout(1)
@@ -124,6 +144,7 @@ class Solver[Term, Fun](val BITS : Int) {
     disunificationConstraintsStack = List()
     constraintStack = List()
     assignments.clear
+    CONSTRAINTS.clear
     for (i <- 0 until Math.pow(2, BITS).toInt; j <- 0 until Math.pow(2, BITS).toInt)
       TEQT(i)(j) = -1
   }
@@ -133,9 +154,9 @@ class Solver[Term, Fun](val BITS : Int) {
     solver.reset()
     alloc.reset
     val constr1 = solver.addClause(new VecInt(Array(-ZEROBIT)))
-    CONSTRAINTS += ((constr1 , "ZEROBIT"))
+    // addConstraint(constr1, "ZEROBIT")
     val constr2 = solver.addClause(new VecInt(Array(ONEBIT)))
-    CONSTRAINTS += ((constr2, "ONEBIT"))
+    // addConstraint(constr2, "ONEBIT")    
   }
 
 
@@ -157,16 +178,43 @@ class Solver[Term, Fun](val BITS : Int) {
 
   def internal() = {
     println("<<< INTERNAL BREU PROBLEM >>>")
-    for (t <- terms().sortBy(termToInt))
-      println("\t" + t + " (" + termToInt(t) + ") [" + assignments(termToInt(t)).mkString(",") + "]: ")
+    println("Length: " + subProblems.length)
+    println("CONSTRAINTS: " + CONSTRAINTS.length)
+    println("Constraint Stack: " + constraintStack.map(_.length))
+    println("Terms Stack: " + termStack.map(_.length))
+
+
+    
+    // for (t <- terms().sortBy(termToInt))
+    //   println("\t" + t + " (" + termToInt(t) + ") [" + assignments(termToInt(t)).mkString(",") + "]: ")
     println("<<< CONSTRAINTS >>>")
+    // println(CONSTRAINTS.length)
     for ((c, str) <- CONSTRAINTS; if (c != null))
       println("\t" + c + " ==> " +  str)
 
-    println("<<< TEQT >>>")
-    for (row <- TEQT) {
-      println(row.mkString(", "))
+    println("<<< CONSTRAINTSTACK >>>")
+    for (cs <- constraintStack) {
+      println(cs)
+      println("\t" + cs.mkString(" ... "))
     }
+
+    // println("<<< TEQT >>>")
+    // for (row <- TEQT) {
+    //   println(row.mkString(", "))
+    // }
+
+    // println("<<< SOLVER STATS >>>")
+    // println(solver)
+    // println("      ===========")
+
+    // import scala.collection.JavaConversions._    
+    // val map = solver.getStat()
+
+    // for ((k, v) <- map)
+    //   println((k, v))
+
+    assert(curConstraints.length == 0)
+    assert(curConstraints.length + constraintStack.map(_.length).sum == CONSTRAINTS.length)        
   }
 
   def toIntString() = {
@@ -286,14 +334,12 @@ class Solver[Term, Fun](val BITS : Int) {
           val iddBit = teqt(ss, ss)
           val neqBit = -termEqIntAux(termBits, ss)
           val constr = solver.addClause(new VecInt(Array(iddBit, neqBit)))
-          CONSTRAINTS += ((constr, ("IDEMPOTENCY of " + t + " and " + s)))
-          curConstraints = constr :: curConstraints
+          addConstraint(constr, "IDEMPOTENCY of " + t + " and " + s, true)
 
           termEqIntAux(termBits, ss)
         }).toArray
       val constr = solver.addClause(new VecInt(assBits))
-      CONSTRAINTS += ((constr, "DOMAIN of " + t))
-      curConstraints = constr :: curConstraints
+      addConstraint(constr, "DOMAIN of " + t, true)
     }
   }
 
@@ -394,10 +440,12 @@ class Solver[Term, Fun](val BITS : Int) {
     for (c <- constraintStack.head) {
       if (c != null) {
         solver.removeConstr(c)
-        CONSTRAINTS -= CONSTRAINTS.find(_._1 == c).get
+        remConstraint(c)
       } 
     }
+
     constraintStack = constraintStack.tail
+
     unificationConstraintsStack = unificationConstraintsStack.tail
     disunificationConstraintsStack = disunificationConstraintsStack.tail
   }
@@ -482,9 +530,7 @@ class Solver[Term, Fun](val BITS : Int) {
           try {
             // positiveBlockingClauses += finalDQ.toList            
             val constr = solver.addClause(new VecInt(blockingClause))
-            CONSTRAINTS += ((constr, "BLOCKING CLAUSE: " + finalDQ.mkString(" v ")))
-            curConstraints = constr :: curConstraints
-            // bcCount += 1
+            addConstraint(constr, "BLOCKING CLAUSE: " + finalDQ.mkString(" v "), true)
             false
           } catch {
             case e : org.sat4j.specs.ContradictionException => {
@@ -513,9 +559,7 @@ class Solver[Term, Fun](val BITS : Int) {
         try {
           // positiveBlockingClauses += bc.toList
           val constr = solver.addClause(new VecInt(blockingClause))
-          CONSTRAINTS += ((constr, "GIVEN BLOCKING CLAUSE: " + uc.mkString(" v ")))
-          curConstraints = constr :: curConstraints
-          // bcCount += 1
+          addConstraint(constr, "GIVEN BLOCKING CLAUSE: " + uc.mkString(" v "), true)
         } catch {
           case e : org.sat4j.specs.ContradictionException => {
             throw new Exception("Blocking Clauses are Contradictory")
@@ -533,9 +577,7 @@ class Solver[Term, Fun](val BITS : Int) {
         try {
           // negativeBlockingClauses += bc.toList
           val constr = solver.addClause(new VecInt(blockingClause))
-          CONSTRAINTS += ((constr, "GIVEN (NEG) BLOCKING CLAUSE: " + dc.mkString(" ... ")))          
-          curConstraints = constr :: curConstraints
-          // bcCount += 1
+          addConstraint(constr, "GIVEN (NEG) BLOCKING CLAUSE: " + dc.mkString(" ... "), true)
         } catch {
           case e : org.sat4j.specs.ContradictionException => {
             throw e
@@ -575,11 +617,18 @@ class Solver[Term, Fun](val BITS : Int) {
 
 
       if (allSat) {
+        // Store blocking clauses in current problem
+        val newHead = (curConstraints ++ constraintStack.head)
+        constraintStack = newHead :: constraintStack.tail
+        curConstraints = List()
         model = Some(candidate)
         breu.Result.SAT
       } else {
-        // lastUnsatCore =
-        //   (for (i <- 0 until size(); if (blockingProblem(i))) yield i)
+        // We have to remove all blocking clauses
+        for (c <- curConstraints)
+          remConstraint(c)
+        curConstraints = List()
+
         breu.Result.UNSAT
       }
     }
@@ -716,45 +765,6 @@ class Solver[Term, Fun](val BITS : Int) {
     }
     TEQT(s min t)(s max t)
   }
-
-
-  // def createAssignments() : Map[Int, Seq[Int]] = {
-  //   // Connects each term with its list of bits
-  //   // (e.g. assignment(a) = List(3,4,5))
-  //   val terms = allTerms()
-  //   val idomains = intDomains()
-
-  //   var assignments = Map() : Map[Int, Seq[Int]]
-  //   assignments =
-  //     (for (t <- terms) yield {
-  //       (t,
-  //         (if (idomains(t).size == 1) {
-  //           val r = termAssIntAux(idomains(t).toList(0))
-  //           r
-  //         } else {
-  //           val termStartBit = alloc.alloc(BITS)
-  //           val termBits = List.tabulate(BITS)(x => x + termStartBit)
-  //           val assBits =
-  //             (for (tt <- idomains(t); if tt <= t) yield  {
-  //               termEqIntAux(termBits, tt)
-  //             }).toArray
-  //           val constr = solver.addClause(new VecInt(assBits))
-  //           CONSTRAINTS += ((constr, " " + finalDQ.mkString(" v ")))
-  //           curConstraints = constr :: curConstraints
-  //           termBits}))}).toMap
-
-  //   // Enforce idempotency
-  //   for (t <- terms) {
-  //     for (tt <- idomains(t); if tt <= t) {
-  //       // Either tt = tt or t != tt
-  //       val iddBit = termEqIntAux(assignments(tt), tt)
-  //       val neqBit = -termEqIntAux(assignments(t), tt)
-  //       val constr = solver.addClause(new VecInt(Array(iddBit, neqBit)))
-  //       curConstraints = constr :: curConstraints
-  //     }
-  //   }
-  //   assignments
-  // }
   
 
   def testSolution(solution : Map [Int, Int]) = {
@@ -800,17 +810,4 @@ class Solver[Term, Fun](val BITS : Int) {
 
    (for ((s, t) <- model.get) yield (tm(s) -> tm(t))).toMap
   }
-
-//   override def getStat(result : breu.Result.Result) = 
-//     "LAZY>RESULT:" + result + ",BLOCKINGCLAUSES:" + bcCount
-
-//   def unsatCoreAux(problem : Problem, timeout : Int) = lastUnsatCore
-
-//   // def unitBlockingClauses = unitClauses
-//   // def blockingClauses = savedBlockingClauses
-
-//   // We automatically calculate unsatCore
-//   var lastUnsatCore = List() : Seq[Int]
-//   var unitClauses = ListBuffer() : ListBuffer[(Int, Int)]
-//   var bcCount = 0
 }
